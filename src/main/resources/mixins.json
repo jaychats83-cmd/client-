@@ -1,0 +1,48 @@
+{
+  "required": true,
+  "package": "starry.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "BlockOutlineMixin",
+    "CameraMixin",
+    "ChatInputSuggestorMixin",
+    "ChatScreenMixin",
+    "ChunkOcclusionDataBuilderMixin",
+    "ClientPlayerInteractionManagerMixin",
+    "ClientPlayNetworkHandlerMixin",
+    "ClientWorldAccessor",
+    "ClientWorldMixin",
+    "EntityMixin",
+    "EntityRendererMixin",
+    "GameRendererMixin",
+    "HandledScreenAccessor",
+    "HandledScreenMixin",
+    "HeldItemRendererMixin",
+    "IClientWorld",
+    "InGameHudMixin",
+    "InGameOverlayRendererMixin",
+    "KeyboardMixin",
+    "LightmapTextureManagerMixin",
+    "MinecraftClientMixin",
+    "MixinBuiltChunk",
+    "MixinClientPlayerInteractionManager",
+    "MixinItemEntityRenderer",
+    "MixinPlayerEntityRenderer",
+    "MouseAccessor",
+    "MouseMixin",
+    "MultiplayerServerListWidgetMixin",
+    "PlayerListHudMixin",
+    "ScreenMixin",
+    "StatusEffectFogModifierMixin",
+    "WindowMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "ClientConnectionAccessor",
+    "ClientConnectionMixin",
+    "LivingEntityMixin",
+    "TextVisitFactoryMixin"
+  ]
+}

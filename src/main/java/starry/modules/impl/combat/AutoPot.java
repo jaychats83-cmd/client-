@@ -1,0 +1,83 @@
+package starry.modules.impl.combat;
+
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import starry.events.api.EventHandler;
+import starry.events.impl.TickEvent;
+import starry.modules.module.ModuleStructure;
+import starry.modules.module.category.ModuleCategory;
+import starry.modules.module.setting.implement.BooleanSetting;
+import starry.modules.module.setting.implement.SliderSettings;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.Items;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class AutoPot extends ModuleStructure {
+    SliderSettings minHealth = new SliderSettings("Min Health", "").setValue(10f).range(1, 20);
+    SliderSettings switchDelay = new SliderSettings("Switch Delay", "").setValue(0f).range(0, 10);
+    SliderSettings throwDelay = new SliderSettings("Throw Delay", "").setValue(0f).range(0, 10);
+    BooleanSetting goToPrevSlot = new BooleanSetting("Switch Back", "").setValue(true);
+    BooleanSetting lookDown = new BooleanSetting("Look Down", "").setValue(true);
+
+    private int switchClock, throwClock, prevSlot;
+    private float prevPitch;
+    private boolean bool;
+
+    public AutoPot() {
+        super("Auto Pot", ModuleCategory.COMBAT);
+        settings(minHealth, switchDelay, throwDelay, goToPrevSlot, lookDown);
+    }
+
+    @Override
+    public void activate() { reset(); }
+
+    private void reset() { switchClock = 0; throwClock = 0; prevSlot = -1; prevPitch = -1; }
+
+    @EventHandler
+    public void onTick(TickEvent event) {
+        if (mc.currentScreen != null) return;
+        if ((mc.player.getHealth() <= minHealth.getValue() || bool)) {
+            if (bool && mc.player.getHealth() >= mc.player.getMaxHealth()) { bool = false; return; }
+
+            if (!isHealthPotion(mc.player.getMainHandStack())) {
+                if (switchClock < switchDelay.getValue()) { switchClock++; return; }
+                if (goToPrevSlot.isValue() && prevSlot == -1) prevSlot = mc.player.getInventory().getSelectedSlot();
+                if (lookDown.isValue() && prevPitch == -1) prevPitch = mc.player.getPitch();
+
+                int potSlot = findHealthPotion();
+                if (potSlot != -1) {
+                    mc.player.getInventory().setSelectedSlot(potSlot);
+                    switchClock = 0;
+                }
+            }
+
+            if (isHealthPotion(mc.player.getMainHandStack())) {
+                if (throwClock < throwDelay.getValue()) { throwClock++; return; }
+                if (lookDown.isValue()) mc.player.setPitch(90F);
+                ActionResult result = mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                if (result.isAccepted()) mc.player.swingHand(Hand.MAIN_HAND);
+                throwClock = 0;
+            }
+        } else if (prevSlot != -1 || prevPitch != -1) {
+            mc.player.getInventory().setSelectedSlot(prevSlot);
+            prevSlot = -1;
+            mc.player.setPitch(prevPitch);
+            prevPitch = -1;
+        }
+    }
+
+    private boolean isHealthPotion(net.minecraft.item.ItemStack stack) {
+        return stack.isOf(Items.SPLASH_POTION) && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS) != null
+                && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS).potion().isPresent()
+                && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS).potion().get().value().getEffects().stream()
+                .anyMatch(e -> e.getEffectType().equals(StatusEffects.INSTANT_HEALTH.value()));
+    }
+
+    private int findHealthPotion() {
+        for (int i = 0; i < 9; i++)
+            if (isHealthPotion(mc.player.getInventory().getStack(i))) return i;
+        return -1;
+    }
+}

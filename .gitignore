@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Minecraft dev
+/run/
+/configs/
+/qcloud/
+/starry/
+
+# Secrets - DO NOT COMMIT
+discord-bot/config.properties
+src/main/resources/license.key
+
+# Bot output
+discord-bot/patched-jars/

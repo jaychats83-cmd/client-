@@ -1,0 +1,62 @@
+{
+  "kolokolnia_kill": {
+    "sounds": [
+      "starry:kolokolnia_kill"
+    ]
+  },
+  "moan1": {
+    "sounds": [
+      "starry:moan1"
+    ]
+  },
+  "moan2": {
+    "sounds": [
+      "starry:moan2"
+    ]
+  },
+  "moan3": {
+    "sounds": [
+      "starry:moan3"
+    ]
+  },
+  "moan4": {
+    "sounds": [
+      "starry:moan4"
+    ]
+  },
+  "module_disable": {
+    "sounds": [
+      "starry:module_disable"
+    ]
+  },
+  "module_enable": {
+    "sounds": [
+      "starry:module_enable"
+    ]
+  },
+  "off": {
+    "sounds": [
+      "starry:off"
+    ]
+  },
+  "on": {
+    "sounds": [
+      "starry:on"
+    ]
+  },
+  "crime": {
+    "sounds": [
+      "starry:crime"
+    ]
+  },
+  "metallic": {
+    "sounds": [
+      "starry:metallic"
+    ]
+  },
+  "welcome": {
+  "sounds": [
+    "starry:welcome"
+  ]
+}
+}

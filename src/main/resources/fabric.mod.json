@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "qcloud",
+  "version": "${version}",
+  "name": "qcloud",
+  "description": "qcloud Minecraft client with shader-based rendering",
+  "authors": ["qcloud"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/starry/textures/world/crown.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "starry.Initialization"
+    ]
+  },
+  "mixins": [
+    "mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}
