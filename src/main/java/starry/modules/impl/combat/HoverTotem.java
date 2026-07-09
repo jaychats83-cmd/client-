@@ -60,16 +60,20 @@ public class HoverTotem extends ModuleStructure {
             int hoveredScreenSlot = hoveredSlot.id;
             if (!mc.player.getOffHandStack().isOf(Items.TOTEM_OF_UNDYING)) {
                 mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, hoveredScreenSlot, 40, SlotActionType.SWAP, mc.player);
-                clock = delay.getInt();
+                clock = fastDelay();
                 return;
             }
 
             if (hotbar.isValue() && !mc.player.getInventory().getStack(preferredHotbarSlot).isOf(Items.TOTEM_OF_UNDYING)) {
                 mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, hoveredScreenSlot, preferredHotbarSlot, SlotActionType.SWAP, mc.player);
-                clock = delay.getInt();
+                clock = fastDelay();
             }
         } else {
-            clock = delay.getInt();
+            clock = fastDelay();
         }
+    }
+
+    private int fastDelay() {
+        return Math.max(0, Math.round(delay.getValue() * 0.5F));
     }
 }

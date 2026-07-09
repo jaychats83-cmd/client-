@@ -8,10 +8,15 @@ import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
 import starry.modules.module.setting.implement.SliderSettings;
+import starry.util.render.Render3D;
 import net.minecraft.block.entity.*;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.WorldChunk;
+
+import java.awt.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SusChunkESP extends ModuleStructure {
@@ -41,6 +46,7 @@ public class SusChunkESP extends ModuleStructure {
                 if (chunk == null) continue;
                 int score = scoreChunk(worldChunk);
                 if (score < minScore.getInt()) continue;
+                renderChunk(worldChunk.getPos(), score);
             }
         }
     }
@@ -65,5 +71,33 @@ public class SusChunkESP extends ModuleStructure {
         if (entity instanceof FurnaceBlockEntity) return 2;
         if (entity instanceof EnchantingTableBlockEntity) return 2;
         return 0;
+    }
+
+    private void renderChunk(ChunkPos chunkPos, int score) {
+        int x1 = chunkPos.getStartX();
+        int z1 = chunkPos.getStartZ();
+        int x2 = x1 + 16;
+        int z2 = z1 + 16;
+        float y = (float) Math.floor(mc.player.getY()) - 0.02F;
+        Box box = new Box(x1, y, z1, x2, y + 0.08F, z2);
+
+        if (fill.isValue()) {
+            Render3D.drawBox(box, colorForScore(score, alpha.getInt()).getRGB(), 1.4F, false, true, false);
+        }
+
+        if (outline.isValue()) {
+            Render3D.drawBox(box, colorForScore(score, 210).getRGB(), 1.4F, true, false, false);
+        }
+
+        if (tracers.isValue()) {
+            Vec3d center = new Vec3d(x1 + 8.0, y + 0.1, z1 + 8.0);
+            Render3D.drawLine(mc.player.getEyePos(), center, colorForScore(score, 230).getRGB(), 1.4F, false);
+        }
+    }
+
+    private Color colorForScore(int score, int a) {
+        if (score >= minScore.getInt() * 3) return new Color(255, 72, 92, a);
+        if (score >= minScore.getInt() * 2) return new Color(255, 168, 44, a);
+        return new Color(63, 190, 255, a);
     }
 }

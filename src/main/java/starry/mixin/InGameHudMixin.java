@@ -73,6 +73,12 @@ public abstract class InGameHudMixin implements IMinecraft {
         h1v5ow noRender = h1v5ow.getInstance();
         if (noRender != null && noRender.isState() && noRender.modeSetting.isSelected("Scoreboard")) {
             ci.cancel();
+            return;
+        }
+
+        FakeScoreboard fakeScoreboard = getModule(FakeScoreboard.class);
+        if (fakeScoreboard != null && fakeScoreboard.isState()) {
+            ci.cancel();
         }
     }
 
@@ -145,5 +151,19 @@ public abstract class InGameHudMixin implements IMinecraft {
         if (className.contains("pack")) return true;
         if (fullName.contains("mojang")) return true;
         return false;
+    }
+
+    @Unique
+    private <T extends starry.modules.module.ModuleStructure> T getModule(Class<T> clazz) {
+        try {
+            if (Initialization.getInstance() == null
+                    || Initialization.getInstance().getManager() == null
+                    || Initialization.getInstance().getManager().getModuleProvider() == null) {
+                return null;
+            }
+            return Initialization.getInstance().getManager().getModuleProvider().get(clazz);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }

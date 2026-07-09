@@ -6,6 +6,7 @@ import starry.events.api.EventHandler;
 import starry.events.impl.TickEvent;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
+import starry.modules.module.setting.implement.BindSetting;
 import starry.modules.module.setting.implement.BooleanSetting;
 import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.item.Items;
@@ -15,6 +16,7 @@ import org.lwjgl.glfw.GLFW;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class KeyPearl extends ModuleStructure {
+    BindSetting activateKey = new BindSetting("Activate Key", "Key that throws the pearl").setKey(GLFW.GLFW_KEY_R);
     SliderSettings delay = new SliderSettings("Delay", "").setValue(0f).range(0f, 20f);
     BooleanSetting switchBack = new BooleanSetting("Switch Back", "").setValue(true);
     SliderSettings switchDelay = new SliderSettings("Switch Delay", "").setValue(0f).range(0f, 20f);
@@ -24,7 +26,7 @@ public class KeyPearl extends ModuleStructure {
 
     public KeyPearl() {
         super("Key Pearl", ModuleCategory.MISC);
-        settings(delay, switchBack, switchDelay);
+        settings(activateKey, delay, switchBack, switchDelay);
     }
 
     @Override
@@ -36,7 +38,7 @@ public class KeyPearl extends ModuleStructure {
     public void onTick(TickEvent event) {
         if (mc.currentScreen != null || mc.player == null) return;
 
-        if (GLFW.glfwGetKey(mc.getWindow().getHandle(), GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS) active = true;
+        if (isKeyPressed(activateKey.getKey())) active = true;
 
         if (!active) return;
 
@@ -62,5 +64,12 @@ public class KeyPearl extends ModuleStructure {
         for (int i = 0; i < 9; i++)
             if (mc.player.getInventory().getStack(i).isOf(item)) { mc.player.getInventory().setSelectedSlot(i); return true; }
         return false;
+    }
+
+    private boolean isKeyPressed(int keyCode) {
+        if (keyCode <= 8) {
+            return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
+        }
+        return GLFW.glfwGetKey(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
     }
 }

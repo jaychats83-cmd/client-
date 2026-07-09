@@ -2,99 +2,200 @@ package starry.modules.impl.combat;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
+import net.minecraft.block.Blocks;
+import net.minecraft.entity.decoration.EndCrystalEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import starry.events.api.EventHandler;
 import starry.events.impl.TickEvent;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
 import starry.modules.module.setting.implement.SliderSettings;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.item.Items;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import org.lwjgl.glfw.GLFW;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AutoDTAP extends ModuleStructure {
-    SliderSettings placeDelay = new SliderSettings("Place Delay", "").setValue(3f).range(0, 20);
-    SliderSettings breakDelay = new SliderSettings("Break Delay", "").setValue(3f).range(0, 20);
-    SliderSettings placeChance = new SliderSettings("Place Chance", "").setValue(100f).range(0f, 100f);
-    SliderSettings breakChance = new SliderSettings("Break Chance", "").setValue(100f).range(0f, 100f);
-    SliderSettings perBlockLimit = new SliderSettings("Per Block Limit", "").setValue(3f).range(1, 8);
+    SliderSettings stepDelay = new SliderSettings("Step Delay", "Delay between DTAP actions").setValue(1f).range(0f, 10f);
+    SliderSettings range = new SliderSettings("Range", "").setValue(4.5f).range(2f, 6f);
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "").setValue(true);
-    BooleanSetting breakCrystals = new BooleanSetting("Break Crystals", "").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
+    BooleanSetting restoreSlot = new BooleanSetting("Restore Slot", "").setValue(true);
 
-    private final Map<BlockPos, Integer> placed = new HashMap<>();
-    private int placeTicks, breakTicks;
+    PlayerEntity target;
+    BlockPos obsidianPos;
+    int stage;
+    int delayClock;
+    int originalSlot = -1;
+    boolean wasPressed;
 
     public AutoDTAP() {
-        super("Auto DTAP", ModuleCategory.CPVP);
-        settings(placeDelay, breakDelay, placeChance, breakChance, perBlockLimit, autoSwitch, breakCrystals, swing);
+        super("Auto DTAP", "Hit, place obsidian, place crystal, and break it for a CPVP double tap", ModuleCategory.CPVP);
+        settings(stepDelay, range, autoSwitch, swing, restoreSlot);
     }
 
     @Override
-    public void activate() { placed.clear(); placeTicks = 0; breakTicks = 0; }
+    public void activate() {
+        reset();
+    }
+
     @Override
-    public void deactivate() { placed.clear(); }
+    public void deactivate() {
+        restoreOriginalSlot();
+        reset();
+    }
 
     @EventHandler
     public void onTick(TickEvent event) {
-        if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) return;
-        if (!mc.options.attackKey.isPressed()) { placeTicks = 0; breakTicks = 0; return; }
-        placeTicks++;
-        breakTicks++;
-        if (breakCrystals.isValue() && breakTicks >= breakDelay.getInt()) breakCrystal();
-        if (placeTicks >= placeDelay.getInt()) placeCrystal();
-    }
-
-    private void placeCrystal() {
-        if (ThreadLocalRandom.current().nextInt(100) >= placeChance.getValue()) return;
-        if (!(mc.crosshairTarget instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
-        BlockPos pos = hit.getBlockPos();
-        if (!mc.world.getBlockState(pos).isOf(Blocks.OBSIDIAN) && !mc.world.getBlockState(pos).isOf(Blocks.BEDROCK)) return;
-        if (!canPlaceCrystal(pos)) return;
-        if (placed.getOrDefault(pos, 0) >= perBlockLimit.getInt()) return;
-        if (!holdingCrystal()) { if (!autoSwitch.isValue() || !selectItem(Items.END_CRYSTAL)) return; }
-        mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
-        if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-        placed.put(pos.toImmutable(), placed.getOrDefault(pos, 0) + 1);
-        placeTicks = 0;
-    }
-
-    private void breakCrystal() {
-        if (ThreadLocalRandom.current().nextInt(100) >= breakChance.getValue()) return;
-        if (mc.crosshairTarget instanceof EntityHitResult hit && hit.getEntity() instanceof EndCrystalEntity) {
-            mc.interactionManager.attackEntity(mc.player, hit.getEntity());
-            if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-            breakTicks = 0;
+        if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) {
+            reset();
             return;
         }
-        EndCrystalEntity crystal = mc.world.getEntitiesByClass(EndCrystalEntity.class, mc.player.getBoundingBox().expand(5), e -> e.isAlive())
-                .stream().min((a, b) -> Double.compare(a.squaredDistanceTo(mc.player), b.squaredDistanceTo(mc.player))).orElse(null);
-        if (crystal != null) {
-            mc.interactionManager.attackEntity(mc.player, crystal);
-            if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-            breakTicks = 0;
+
+        boolean pressed = mc.options.attackKey.isPressed();
+        if (stage == 0 && pressed && !wasPressed) {
+            target = findCrosshairPlayer();
+            if (target != null) {
+                originalSlot = mc.player.getInventory().getSelectedSlot();
+                obsidianPos = findObsidianPos(target);
+                stage = 1;
+                delayClock = 0;
+            }
+        }
+        wasPressed = pressed;
+
+        if (stage == 0) return;
+        if (!isValidTarget(target) || obsidianPos == null) {
+            restoreOriginalSlot();
+            reset();
+            return;
+        }
+
+        if (delayClock > 0) {
+            delayClock--;
+            return;
+        }
+
+        switch (stage) {
+            case 1 -> {
+                mc.interactionManager.attackEntity(mc.player, target);
+                if (swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
+                nextStage();
+            }
+            case 2 -> {
+                if (!mc.world.getBlockState(obsidianPos).isOf(Blocks.OBSIDIAN)) {
+                    if (!selectItem(Items.OBSIDIAN) || !placeBlock(obsidianPos)) {
+                        restoreOriginalSlot();
+                        reset();
+                        return;
+                    }
+                }
+                nextStage();
+            }
+            case 3 -> {
+                if (!selectItem(Items.END_CRYSTAL) || !placeCrystal(obsidianPos)) {
+                    restoreOriginalSlot();
+                    reset();
+                    return;
+                }
+                nextStage();
+            }
+            case 4 -> {
+                EndCrystalEntity crystal = findCrystal(obsidianPos);
+                if (crystal != null) {
+                    mc.interactionManager.attackEntity(mc.player, crystal);
+                    if (swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
+                }
+                restoreOriginalSlot();
+                reset();
+            }
         }
     }
 
-    private boolean canPlaceCrystal(BlockPos pos) {
-        net.minecraft.util.math.BlockPos up = pos.up();
-        return mc.world.isAir(up) && mc.world.getOtherEntities(null, new net.minecraft.util.math.Box(up)).stream().noneMatch(e -> e instanceof EndCrystalEntity);
+    private void nextStage() {
+        stage++;
+        delayClock = Math.max(0, Math.round(stepDelay.getValue() * 0.5F));
     }
 
-    private boolean holdingCrystal() {
-        return mc.player.getMainHandStack().isOf(Items.END_CRYSTAL) || mc.player.getOffHandStack().isOf(Items.END_CRYSTAL);
+    private PlayerEntity findCrosshairPlayer() {
+        if (mc.crosshairTarget instanceof EntityHitResult hit && hit.getEntity() instanceof PlayerEntity player && isValidTarget(player)) {
+            return player;
+        }
+        return mc.world.getPlayers().stream()
+                .filter(this::isValidTarget)
+                .filter(player -> mc.player.distanceTo(player) <= range.getValue())
+                .min((a, b) -> Double.compare(mc.player.squaredDistanceTo(a), mc.player.squaredDistanceTo(b)))
+                .orElse(null);
     }
 
-    private boolean selectItem(net.minecraft.item.Item item) {
+    private boolean isValidTarget(PlayerEntity player) {
+        return player != null && player != mc.player && player.isAlive() && !player.isSpectator()
+                && mc.player.squaredDistanceTo(player) <= range.getValue() * range.getValue();
+    }
+
+    private BlockPos findObsidianPos(PlayerEntity player) {
+        BlockPos feet = player.getBlockPos();
+        BlockPos[] candidates = {
+                feet.down(),
+                feet.offset(player.getHorizontalFacing().getOpposite()).down(),
+                feet.offset(player.getHorizontalFacing()).down(),
+                feet.offset(player.getHorizontalFacing().rotateYClockwise()).down(),
+                feet.offset(player.getHorizontalFacing().rotateYCounterclockwise()).down()
+        };
+        for (BlockPos pos : candidates) {
+            if (canUseObsidianSpot(pos)) return pos;
+        }
+        return null;
+    }
+
+    private boolean canUseObsidianSpot(BlockPos pos) {
+        return (mc.world.getBlockState(pos).isReplaceable() || mc.world.getBlockState(pos).isOf(Blocks.OBSIDIAN))
+                && mc.world.getBlockState(pos.up()).isReplaceable();
+    }
+
+    private boolean placeBlock(BlockPos pos) {
+        BlockHitResult hit = neighborHit(pos);
+        if (hit == null) return false;
+        var result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
+        if (result.isAccepted() && swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
+        return result.isAccepted();
+    }
+
+    private boolean placeCrystal(BlockPos obsidian) {
+        BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(obsidian).add(0, 0.5, 0), Direction.UP, obsidian, false);
+        var result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
+        if (result.isAccepted() && swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
+        return result.isAccepted();
+    }
+
+    private BlockHitResult neighborHit(BlockPos pos) {
+        for (Direction direction : Direction.values()) {
+            BlockPos neighbor = pos.offset(direction);
+            if (mc.world.getBlockState(neighbor).isAir() || mc.world.getBlockState(neighbor).isReplaceable()) continue;
+            Direction side = direction.getOpposite();
+            return new BlockHitResult(Vec3d.ofCenter(neighbor).add(Vec3d.of(side.getVector()).multiply(0.5)), side, neighbor, false);
+        }
+        return null;
+    }
+
+    private EndCrystalEntity findCrystal(BlockPos obsidian) {
+        Box box = new Box(obsidian.up()).expand(2.5);
+        return mc.world.getEntitiesByClass(EndCrystalEntity.class, box, EndCrystalEntity::isAlive)
+                .stream()
+                .min((a, b) -> Double.compare(a.squaredDistanceTo(target), b.squaredDistanceTo(target)))
+                .orElse(null);
+    }
+
+    private boolean selectItem(Item item) {
+        if (mc.player.getMainHandStack().isOf(item)) return true;
+        if (!autoSwitch.isValue()) return false;
         for (int i = 0; i < 9; i++) {
             if (mc.player.getInventory().getStack(i).isOf(item)) {
                 mc.player.getInventory().setSelectedSlot(i);
@@ -102,5 +203,19 @@ public class AutoDTAP extends ModuleStructure {
             }
         }
         return false;
+    }
+
+    private void restoreOriginalSlot() {
+        if (restoreSlot.isValue() && mc.player != null && originalSlot >= 0 && originalSlot <= 8) {
+            mc.player.getInventory().setSelectedSlot(originalSlot);
+        }
+    }
+
+    private void reset() {
+        target = null;
+        obsidianPos = null;
+        stage = 0;
+        delayClock = 0;
+        originalSlot = -1;
     }
 }

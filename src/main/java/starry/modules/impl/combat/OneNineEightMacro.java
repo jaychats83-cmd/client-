@@ -83,7 +83,7 @@ public class OneNineEightMacro extends ModuleStructure {
         if (!(mc.player.raycast(5.0, 1.0F, false) instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) { state = MacroState.IDLE; return; }
         if (!selectItem(Items.OBSIDIAN)) return;
         placeBlock(hit);
-        obbyClock = obbyDelay.getInt();
+        obbyClock = fastDelay(obbyDelay);
         state = MacroState.WAIT_OBI;
     }
 
@@ -102,7 +102,7 @@ public class OneNineEightMacro extends ModuleStructure {
 
         BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(basePos).add(0, 0.5, 0), Direction.UP, basePos, false);
         placeBlock(hit);
-        crystalClock = crystalDelay.getInt();
+        crystalClock = fastDelay(crystalDelay);
         state = MacroState.BREAK_CRYSTAL;
     }
 
@@ -114,11 +114,11 @@ public class OneNineEightMacro extends ModuleStructure {
         if (!breakCrystal.isValue() || crystalClock > 0 || !roll(breakChance.getInt())) return;
 
         if (mc.crosshairTarget instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof EndCrystalEntity crystal) {
-            attackCrystal(crystal); crystalClock = breakDelay.getInt(); return;
+            attackCrystal(crystal); crystalClock = fastDelay(breakDelay); return;
         }
         for (Entity entity : mc.world.getEntities()) {
             if (entity instanceof EndCrystalEntity crystal && crystal.distanceTo(mc.player) < 9.0F) {
-                attackCrystal(crystal); crystalClock = breakDelay.getInt(); return;
+                attackCrystal(crystal); crystalClock = fastDelay(breakDelay); return;
             }
         }
     }
@@ -148,5 +148,9 @@ public class OneNineEightMacro extends ModuleStructure {
     private void placeBlock(BlockHitResult hit) {
         mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
         mc.player.swingHand(Hand.MAIN_HAND);
+    }
+
+    private int fastDelay(SliderSettings setting) {
+        return Math.max(0, Math.round(setting.getValue() * 0.5F));
     }
 }

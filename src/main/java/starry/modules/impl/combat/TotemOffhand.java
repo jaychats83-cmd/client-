@@ -38,7 +38,7 @@ public class TotemOffhand extends ModuleStructure {
         if (mc.player.getHealth() <= health.getValue() && !mc.player.getOffHandStack().isOf(Items.TOTEM_OF_UNDYING)) {
             int totemSlot = findTotem();
             if (totemSlot == -1) return;
-            if (clock < delay.getValue()) { clock++; return; }
+            if (clock < fastDelay()) { clock++; return; }
             if (prevSlot == -1) prevSlot = mc.player.getInventory().getSelectedSlot();
             int invIndex = totemSlot < 9 ? totemSlot + 36 : totemSlot;
             mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, invIndex, 40, SlotActionType.SWAP, mc.player);
@@ -56,5 +56,9 @@ public class TotemOffhand extends ModuleStructure {
 
     private void switchBackToPrev() {
         if (prevSlot != -1) { mc.player.getInventory().setSelectedSlot(prevSlot); prevSlot = -1; }
+    }
+
+    private int fastDelay() {
+        return Math.max(0, Math.round(delay.getValue() * 0.5F));
     }
 }

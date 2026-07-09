@@ -2,6 +2,19 @@ package starry.modules.impl.combat;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.RespawnAnchorBlock;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.ShieldItem;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import org.lwjgl.glfw.GLFW;
 import starry.events.api.EventHandler;
 import starry.events.impl.BlockInteractionEvent;
 import starry.events.impl.TickEvent;
@@ -9,13 +22,7 @@ import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
 import starry.modules.module.setting.implement.SliderSettings;
-import net.minecraft.block.Blocks;
-import net.minecraft.item.Items;
-import net.minecraft.item.ShieldItem;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -36,8 +43,10 @@ public class AnchorMacro extends ModuleStructure {
     BooleanSetting onlyOwn = new BooleanSetting("Only Own", "").setValue(false);
     BooleanSetting onlyCharge = new BooleanSetting("Only Charge", "").setValue(false);
 
-    private int switchClock, glowstoneClock, explodeClock;
-    private final Set<BlockPos> ownedAnchors = new HashSet<>();
+    int switchClock;
+    int glowstoneClock;
+    int explodeClock;
+    final Set<BlockPos> ownedAnchors = new HashSet<>();
 
     public AnchorMacro() {
         super("Anchor Macro", ModuleCategory.CPVP);
@@ -46,56 +55,102 @@ public class AnchorMacro extends ModuleStructure {
 
     @Override
     public void activate() {
-        switchClock = 0; glowstoneClock = 0; explodeClock = 0;
+        switchClock = 0;
+        glowstoneClock = 0;
+        explodeClock = 0;
     }
 
     @EventHandler
     public void onTick(TickEvent event) {
-        if (mc.currentScreen != null) return;
-        if (isUsingItem() && whileUse.isValue()) return;
-        if (stopOnKill.isValue() && isDeadBodyNearby()) return;
+        if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null)
+            return;
 
-        if (mc.options.useKey.isPressed() && mc.crosshairTarget instanceof BlockHitResult hit) {
-            BlockPos pos = hit.getBlockPos();
-            if (mc.world.getBlockState(pos).isOf(Blocks.RESPAWN_ANCHOR)) {
-                if (onlyOwn.isValue() && !ownedAnchors.contains(pos)) return;
-                mc.options.useKey.setPressed(false);
+        if (isHoldingUseFoodOrShield() && whileUse.isValue())
+            return;
 
-                if (!isAnchorCharged(pos)) {
-                    if (randomInt(1, 100) <= placeChance.getValue()) {
-                        if (!mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
-                            if (switchClock < switchDelay.getValue()) { switchClock++; return; }
-                            if (randomInt(1, 100) <= switchChance.getValue()) {
-                                switchClock = 0;
-                                selectItem(Items.GLOWSTONE);
-                            }
-                        }
-                        if (mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
-                            if (glowstoneClock < glowstoneDelay.getValue()) { glowstoneClock++; return; }
-                            if (randomInt(1, 100) <= glowstoneChance.getValue()) {
-                                glowstoneClock = 0;
-                                placeBlock(hit);
-                            }
-                        }
+        if (stopOnKill.isValue() && isDeadBodyNearby())
+            return;
+
+        int randomInt = randomInt(1, 100);
+
+        if (!isRightMouseDown())
+            return;
+
+        if (!(mc.crosshairTarget instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK)
+            return;
+
+        BlockPos pos = hit.getBlockPos();
+        if (!isBlock(pos, Blocks.RESPAWN_ANCHOR))
+            return;
+
+        if (onlyOwn.isValue() && !ownedAnchors.contains(pos))
+            return;
+
+        mc.options.useKey.setPressed(false);
+
+        if (isAnchorNotCharged(pos)) {
+            randomInt = randomInt(1, 100);
+
+            if (randomInt <= intValue(placeChance)) {
+                if (!mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
+                    if (switchClock != delayValue(switchDelay)) {
+                        switchClock++;
+                        return;
                     }
-                } else {
-                    int slot = explodeSlot.getInt() - 1;
-                    if (mc.player.getInventory().getSelectedSlot() != slot) {
-                        if (switchClock < switchDelay.getValue()) { switchClock++; return; }
-                        if (randomInt(1, 100) <= switchChance.getValue()) {
-                            switchClock = 0;
-                            mc.player.getInventory().setSelectedSlot(slot);
-                        }
+
+                    randomInt = randomInt(1, 100);
+
+                    if (randomInt <= intValue(switchChance)) {
+                        switchClock = 0;
+                        selectItemFromHotbar(Items.GLOWSTONE);
                     }
-                    if (mc.player.getInventory().getSelectedSlot() == slot) {
-                        if (explodeClock < explodeDelay.getValue()) { explodeClock++; return; }
-                        if (randomInt(1, 100) <= explodeChance.getValue()) {
-                            explodeClock = 0;
-                            if (!onlyCharge.isValue()) {
-                                placeBlock(hit);
-                                ownedAnchors.remove(pos);
-                            }
-                        }
+                }
+
+                if (mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
+                    if (glowstoneClock != delayValue(glowstoneDelay)) {
+                        glowstoneClock++;
+                        return;
+                    }
+
+                    randomInt = randomInt(1, 100);
+
+                    if (randomInt <= intValue(glowstoneChance)) {
+                        glowstoneClock = 0;
+                        placeBlock(hit);
+                    }
+                }
+            }
+        }
+
+        if (isAnchorCharged(pos)) {
+            int slot = intValue(explodeSlot) - 1;
+
+            if (mc.player.getInventory().getSelectedSlot() != slot) {
+                if (switchClock != delayValue(switchDelay)) {
+                    switchClock++;
+                    return;
+                }
+
+                if (randomInt <= intValue(switchChance)) {
+                    switchClock = 0;
+                    mc.player.getInventory().setSelectedSlot(slot);
+                }
+            }
+
+            if (mc.player.getInventory().getSelectedSlot() == slot) {
+                if (explodeClock != delayValue(explodeDelay)) {
+                    explodeClock++;
+                    return;
+                }
+
+                randomInt = randomInt(1, 100);
+
+                if (randomInt <= intValue(explodeChance)) {
+                    explodeClock = 0;
+
+                    if (!onlyCharge.isValue()) {
+                        placeBlock(hit);
+                        ownedAnchors.remove(pos);
                     }
                 }
             }
@@ -104,49 +159,89 @@ public class AnchorMacro extends ModuleStructure {
 
     @EventHandler
     public void onBlockInteract(BlockInteractionEvent event) {
-        if (event.getHitResult() instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
-            if (mc.player.getMainHandStack().isOf(Items.RESPAWN_ANCHOR)) {
-                Direction dir = hit.getSide();
-                BlockPos pos = hit.getBlockPos();
-                if (!mc.world.getBlockState(pos).isReplaceable()) {
-                    ownedAnchors.add(pos.offset(dir));
-                } else {
-                    ownedAnchors.add(pos);
-                }
-            }
-            if (isAnchorCharged(event.getHitResult().getBlockPos()))
-                ownedAnchors.remove(event.getHitResult().getBlockPos());
+        if (mc.player == null || mc.world == null)
+            return;
+
+        BlockHitResult hit = event.getHitResult();
+        if (hit == null || hit.getType() != HitResult.Type.BLOCK)
+            return;
+
+        if (event.getHand() == Hand.MAIN_HAND && mc.player.getMainHandStack().isOf(Items.RESPAWN_ANCHOR)) {
+            Direction dir = hit.getSide();
+            BlockPos pos = hit.getBlockPos();
+
+            if (!mc.world.getBlockState(pos).isReplaceable())
+                ownedAnchors.add(pos.offset(dir).toImmutable());
+            else
+                ownedAnchors.add(pos.toImmutable());
         }
+
+        BlockPos bp = hit.getBlockPos();
+        if (isAnchorCharged(bp))
+            ownedAnchors.remove(bp);
     }
 
-    private boolean isAnchorCharged(BlockPos pos) {
-        return mc.world.getBlockState(pos).isOf(Blocks.RESPAWN_ANCHOR) && mc.world.getBlockState(pos).get(net.minecraft.block.RespawnAnchorBlock.CHARGES) > 0;
-    }
+    private boolean isHoldingUseFoodOrShield() {
+        ItemStack mainHand = mc.player.getMainHandStack();
+        ItemStack offHand = mc.player.getOffHandStack();
+        boolean holdingUseItem = mainHand.getComponents().contains(DataComponentTypes.FOOD)
+                || offHand.getComponents().contains(DataComponentTypes.FOOD)
+                || mainHand.getItem() instanceof ShieldItem
+                || offHand.getItem() instanceof ShieldItem;
 
-    private boolean isUsingItem() {
-        return (mc.player.getMainHandStack().getItem() instanceof ShieldItem || mc.player.getOffHandStack().getItem() instanceof ShieldItem)
-                && mc.options.useKey.isPressed();
+        return holdingUseItem && isRightMouseDown();
     }
 
     private boolean isDeadBodyNearby() {
-        return mc.world.getPlayers().stream().anyMatch(e -> e != mc.player && !e.isAlive() && e.distanceTo(mc.player) < 8);
+        return mc.world.getPlayers().stream().anyMatch(player -> player != mc.player && !player.isAlive() && player.distanceTo(mc.player) < 8.0F);
+    }
+
+    private boolean isAnchorCharged(BlockPos pos) {
+        return isBlock(pos, Blocks.RESPAWN_ANCHOR) && mc.world.getBlockState(pos).get(RespawnAnchorBlock.CHARGES) > 0;
+    }
+
+    private boolean isAnchorNotCharged(BlockPos pos) {
+        return isBlock(pos, Blocks.RESPAWN_ANCHOR) && mc.world.getBlockState(pos).get(RespawnAnchorBlock.CHARGES) == 0;
+    }
+
+    private boolean isBlock(BlockPos pos, net.minecraft.block.Block block) {
+        return mc.world.getBlockState(pos).isOf(block);
+    }
+
+    private boolean selectItemFromHotbar(Item item) {
+        for (int slot = 0; slot < 9; slot++) {
+            if (mc.player.getInventory().getStack(slot).isOf(item)) {
+                mc.player.getInventory().setSelectedSlot(slot);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void placeBlock(BlockHitResult hit) {
+        if (clickSimulation.isValue())
+            mc.options.useKey.setPressed(true);
+
+        mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
+        mc.player.swingHand(Hand.MAIN_HAND);
+
+        if (clickSimulation.isValue())
+            mc.options.useKey.setPressed(false);
+    }
+
+    private boolean isRightMouseDown() {
+        return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
     }
 
     private int randomInt(int min, int max) {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
-    private void selectItem(net.minecraft.item.Item item) {
-        for (int i = 0; i < 9; i++) {
-            if (mc.player.getInventory().getStack(i).isOf(item)) {
-                mc.player.getInventory().setSelectedSlot(i);
-                return;
-            }
-        }
+    private int intValue(SliderSettings setting) {
+        return Math.round(setting.getValue());
     }
 
-    private void placeBlock(BlockHitResult hit) {
-        mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
-        mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+    private int delayValue(SliderSettings setting) {
+        return Math.max(0, Math.round(setting.getValue() * 0.5F));
     }
 }

@@ -67,7 +67,7 @@ public class DoubleAnchor extends ModuleStructure {
             return;
         }
 
-        int delay = switchDelay.getInt() + currentRandomDelay();
+        int delay = fastDelay(switchDelay) + currentRandomDelay();
         if (delayCounter < delay) {
             delayCounter++;
             return;
@@ -142,7 +142,7 @@ public class DoubleAnchor extends ModuleStructure {
 
     private int currentRandomDelay() {
         if (randomDelay == 0 && randomDelayMax.getValue() > randomDelayMin.getValue()) {
-            randomDelay = randomInt(randomDelayMin.getInt(), randomDelayMax.getInt());
+            randomDelay = Math.max(0, Math.round(randomInt(randomDelayMin.getInt(), randomDelayMax.getInt()) * 0.5F));
         }
         return randomDelay;
     }
@@ -181,5 +181,9 @@ public class DoubleAnchor extends ModuleStructure {
     private boolean isKeyPressed(int keyCode) {
         if (keyCode < 0) return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), keyCode + 100) == GLFW.GLFW_PRESS;
         return GLFW.glfwGetKey(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
+    }
+
+    private int fastDelay(SliderSettings setting) {
+        return Math.max(0, Math.round(setting.getValue() * 0.5F));
     }
 }

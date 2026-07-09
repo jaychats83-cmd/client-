@@ -138,7 +138,7 @@ public class AutoCrystal extends ModuleStructure {
                         mc.player.swingHand(Hand.MAIN_HAND);
                     }
 
-                    placeClock = placeDelay.getInt();
+                    placeClock = fastDelay(placeDelay);
                 }
             }
 
@@ -150,7 +150,7 @@ public class AutoCrystal extends ModuleStructure {
                     mc.interactionManager.attackBlock(hit.getBlockPos(), hit.getSide());
                     mc.player.swingHand(Hand.MAIN_HAND);
                     mc.interactionManager.updateBlockBreakingProgress(hit.getBlockPos(), hit.getSide());
-                    breakClock = breakDelay.getInt();
+                    breakClock = fastDelay(breakDelay);
                 }
 
                 if (!dontPlace && randomInt <= placeChance.getInt() && dontBreak) {
@@ -163,7 +163,7 @@ public class AutoCrystal extends ModuleStructure {
             if (!dontBreak && randomInt <= breakChance.getInt()) {
                 simulateClick(GLFW.GLFW_MOUSE_BUTTON_LEFT);
                 mc.player.swingHand(Hand.MAIN_HAND);
-                breakClock = breakDelay.getInt();
+                breakClock = fastDelay(breakDelay);
             }
 
             if (!dontPlace && randomInt <= placeChance.getInt() && dontBreak) {
@@ -187,7 +187,7 @@ public class AutoCrystal extends ModuleStructure {
         simulateClick(GLFW.GLFW_MOUSE_BUTTON_LEFT);
         attackEntity(entity);
         mc.player.swingHand(Hand.MAIN_HAND);
-        breakClock = breakDelay.getInt();
+        breakClock = fastDelay(breakDelay);
 
         if (antiWeakness.isValue()) {
             mc.player.getInventory().setSelectedSlot(previousSlot);
@@ -210,7 +210,7 @@ public class AutoCrystal extends ModuleStructure {
         simulateClick(GLFW.GLFW_MOUSE_BUTTON_LEFT);
         attackEntity(crystal);
         mc.player.swingHand(Hand.MAIN_HAND);
-        breakClock = breakDelay.getInt();
+        breakClock = fastDelay(breakDelay);
 
         if (antiWeakness.isValue()) {
             mc.player.getInventory().setSelectedSlot(previousSlot);
@@ -313,5 +313,9 @@ public class AutoCrystal extends ModuleStructure {
 
     private int randomInt(int min, int max) {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
+    }
+
+    private int fastDelay(SliderSettings setting) {
+        return Math.max(0, Math.round(setting.getValue() * 0.5F));
     }
 }

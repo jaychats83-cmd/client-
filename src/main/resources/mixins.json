@@ -14,6 +14,7 @@
     "ClientWorldMixin",
     "EntityMixin",
     "EntityRendererMixin",
+    "FogRendererMixin",
     "GameRendererMixin",
     "HandledScreenAccessor",
     "HandledScreenMixin",

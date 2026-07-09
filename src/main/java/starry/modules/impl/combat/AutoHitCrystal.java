@@ -70,7 +70,7 @@ public class AutoHitCrystal extends ModuleStructure {
                     if (!mc.player.isHolding(Items.OBSIDIAN)) {
                         if (switchClock > 0) { switchClock--; return; }
                         if (ThreadLocalRandom.current().nextInt(1, 101) <= switchChance.getValue()) {
-                            switchClock = switchDelay.getInt();
+                            switchClock = fastDelay(switchDelay);
                             selectItem(Items.OBSIDIAN);
                         }
                     }
@@ -79,7 +79,7 @@ public class AutoHitCrystal extends ModuleStructure {
                         if (ThreadLocalRandom.current().nextInt(1, 101) <= placeChance.getValue()) {
                             mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
                             mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-                            placeClock = placeDelay.getInt();
+                            placeClock = fastDelay(placeDelay);
                             crystalling = true;
                         }
                     }
@@ -91,7 +91,7 @@ public class AutoHitCrystal extends ModuleStructure {
                     if (switchClock > 0) { switchClock--; return; }
                     if (ThreadLocalRandom.current().nextInt(1, 101) <= switchChance.getValue()) {
                         crystalSelected = selectItem(Items.END_CRYSTAL);
-                        switchClock = switchDelay.getInt();
+                        switchClock = fastDelay(switchDelay);
                     }
                 }
                 if (mc.player.isHolding(Items.END_CRYSTAL)) {
@@ -124,7 +124,7 @@ public class AutoHitCrystal extends ModuleStructure {
     }
 
     private void reset() {
-        placeClock = placeDelay.getInt(); switchClock = switchDelay.getInt();
+        placeClock = fastDelay(placeDelay); switchClock = fastDelay(switchDelay);
         active = false; crystalling = false; crystalSelected = false;
     }
 
@@ -148,5 +148,9 @@ public class AutoHitCrystal extends ModuleStructure {
             }
         }
         return false;
+    }
+
+    private int fastDelay(SliderSettings setting) {
+        return Math.max(0, Math.round(setting.getValue() * 0.5F));
     }
 }

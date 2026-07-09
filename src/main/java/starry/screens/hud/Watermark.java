@@ -1,6 +1,7 @@
 package starry.screens.hud;
 
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.util.Identifier;
 import starry.client.draggables.AbstractHudElement;
 import starry.util.render.Render2D;
 import starry.util.render.font.Fonts;
@@ -12,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import starry.modules.impl.render.*;
 
 public class Watermark extends AbstractHudElement {
+    private static final Identifier LOGO = Identifier.of("starry", "images/elements/logo.png");
 
     private String lastFps = "";
     private String oldFps = "";
@@ -143,7 +145,7 @@ public class Watermark extends AbstractHudElement {
         float textY = y + 7;
         float textX = x + 10;
 
-        Fonts.ICONS.draw("A", textX - 18, textY, 12, new Color(255, 255, 255, 255).getRGB());
+        Render2D.texture(LOGO, textX - 18, textY, 12, 12, new Color(255, 255, 255, 255).getRGB());
 
         float offsetX = textX + 5;
 

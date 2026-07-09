@@ -37,27 +37,33 @@ public class ArmorStatus extends ModuleStructure {
         armor.add(mc.player.getEquippedStack(EquipmentSlot.FEET));
         int left = x.getInt();
         int top = y.getInt();
-        int width = 172;
-        int height = 26 + armor.size() * 18;
+        int cell = 24;
+        int width = armor.size() * cell + 6;
+        int height = 27;
 
         var ctx = event.getDrawContext();
-        ctx.fill(left, top, left + width, top + height, new Color(7, 11, 17, 178).getRGB());
-        ctx.drawText(mc.textRenderer, "Armor", left + 12, top + 9, Color.WHITE.getRGB(), true);
+        ctx.fill(left, top, left + width, top + height, new Color(8, 10, 14, 150).getRGB());
 
-        int row = top + 28;
+        int itemX = left + 4;
         for (ItemStack stack : armor) {
-            String name = stack.isEmpty() ? "Empty" : stack.getName().getString();
-            ctx.drawText(mc.textRenderer, shorten(name, 18), left + 12, row, stack.isEmpty() ? new Color(162, 176, 194).getRGB() : Color.WHITE.getRGB(), true);
-            if (durability.isValue() && !stack.isEmpty() && stack.isDamageable()) {
-                int remaining = stack.getMaxDamage() - stack.getDamage();
-                ctx.drawText(mc.textRenderer, String.valueOf(remaining), left + width - 42, row, new Color(77, 166, 255).getRGB(), true);
+            ctx.fill(itemX - 2, top + 3, itemX + 20, top + 24, new Color(18, 22, 28, 180).getRGB());
+            if (!stack.isEmpty()) {
+                ctx.drawItem(stack, itemX, top + 5);
+                ctx.drawStackOverlay(mc.textRenderer, stack, itemX, top + 5);
             }
-            row += 18;
+            if (durability.isValue() && !stack.isEmpty() && stack.isDamageable()) {
+                int percent = Math.round((stack.getMaxDamage() - stack.getDamage()) * 100f / stack.getMaxDamage());
+                int color = durabilityColor(percent);
+                String text = String.valueOf(percent);
+                ctx.drawText(mc.textRenderer, text, itemX + 9 - mc.textRenderer.getWidth(text) / 2, top + 17, color, true);
+            }
+            itemX += cell;
         }
     }
 
-    private String shorten(String value, int max) {
-        if (value == null) return "";
-        return value.length() <= max ? value : value.substring(0, Math.max(0, max - 3)) + "...";
+    private int durabilityColor(int percent) {
+        if (percent > 65) return new Color(85, 230, 120).getRGB();
+        if (percent > 30) return new Color(255, 210, 80).getRGB();
+        return new Color(255, 80, 80).getRGB();
     }
 }

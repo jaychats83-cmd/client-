@@ -62,7 +62,7 @@ public class SafeAnchor extends ModuleStructure {
             running = true;
         }
 
-        if (delayCounter < switchDelay.getInt()) { delayCounter++; return; }
+        if (delayCounter < fastDelay(switchDelay)) { delayCounter++; return; }
         delayCounter = 0;
 
         switch (step) {
@@ -191,5 +191,9 @@ public class SafeAnchor extends ModuleStructure {
         if (keyCode <= 8)
             return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
         return GLFW.glfwGetKey(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
+    }
+
+    private int fastDelay(SliderSettings setting) {
+        return Math.max(0, Math.round(setting.getValue() * 0.5F));
     }
 }

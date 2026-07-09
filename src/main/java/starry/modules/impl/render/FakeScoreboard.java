@@ -32,53 +32,67 @@ public class FakeScoreboard extends ModuleStructure {
     public void onDraw(DrawEvent event) {
         if (mc.player == null || mc.getWindow() == null) return;
 
-        String[] lines = scoreboardLines();
+        ScoreLine[] lines = scoreboardLines();
         var ctx = event.getDrawContext();
         int width = mc.textRenderer.getWidth(title.getText());
-        for (String line : lines) width = Math.max(width, mc.textRenderer.getWidth(line));
+        for (ScoreLine line : lines) width = Math.max(width, mc.textRenderer.getWidth(line.label + line.value));
         if (showFooter.isValue()) width = Math.max(width, mc.textRenderer.getWidth(footer.getText()));
-        width = Math.max(142, width + 24);
+        width = Math.max(112, width + 18);
 
-        int lineHeight = 11;
-        int headerHeight = 22;
-        int footerHeight = showFooter.isValue() ? 18 : 4;
-        int height = headerHeight + lines.length * lineHeight + footerHeight;
+        int lineHeight = 10;
+        int headerHeight = 16;
+        int footerHeight = showFooter.isValue() ? 16 : 3;
+        int height = headerHeight + lines.length * lineHeight + footerHeight + 4;
         int x = mc.getWindow().getScaledWidth() - width - 10;
         int y = yOffset.getInt();
         int a = alpha.getInt();
 
-        ctx.fill(x, y, x + width, y + height, new Color(5, 9, 20, a).getRGB());
-        ctx.fill(x, y + headerHeight - 1, x + width, y + headerHeight, new Color(65, 190, 255, 115).getRGB());
-        ctx.fill(x, y + headerHeight, x + width, y + height - footerHeight, new Color(20, 55, 82, Math.min(210, a + 10)).getRGB());
-        drawCentered(ctx, title.getText(), x, y + 7, width, new Color(116, 226, 255).getRGB());
+        ctx.fill(x, y, x + width, y + height, new Color(22, 24, 27, Math.min(170, a)).getRGB());
+        ctx.fill(x, y, x + width, y + headerHeight, new Color(18, 20, 22, Math.min(210, a + 20)).getRGB());
+        drawCentered(ctx, title.getText(), x, y + 4, width, new Color(120, 235, 84).getRGB());
 
-        int rowY = y + headerHeight + 4;
-        for (int i = 0; i < lines.length; i++) {
-            int c = i == 0 ? new Color(158, 242, 255).getRGB() : new Color(218, 230, 255).getRGB();
-            ctx.drawText(mc.textRenderer, lines[i], x + 9, rowY, c, false);
+        int rowY = y + headerHeight + 3;
+        for (ScoreLine line : lines) {
+            if (line.label.isEmpty() && line.value.isEmpty()) {
+                rowY += lineHeight;
+                continue;
+            }
+            ctx.drawText(mc.textRenderer, line.label, x + 7, rowY, line.labelColor, true);
+            ctx.drawText(mc.textRenderer, line.value, x + 7 + mc.textRenderer.getWidth(line.label), rowY, line.valueColor, true);
             rowY += lineHeight;
         }
 
         if (showFooter.isValue()) {
-            ctx.fill(x + 8, y + height - footerHeight + 2, x + width - 8, y + height - footerHeight + 3, new Color(90, 130, 175, 95).getRGB());
-            drawCentered(ctx, footer.getText(), x, y + height - footerHeight + 7, width, new Color(151, 178, 205).getRGB());
+            ctx.fill(x, y + height - footerHeight, x + width, y + height - footerHeight + 1, new Color(80, 80, 80, 120).getRGB());
+            drawCentered(ctx, footer.getText(), x, y + height - footerHeight + 5, width, new Color(185, 185, 185).getRGB());
         }
     }
 
-    private String[] scoreboardLines() {
-        String nameLine = "Name: Protected by qcloud";
-        String rankLine = "Rank: QCLOUD";
-        String moneyLine = "Money: $0";
-        String shardsLine = "Shards: 0";
-        String killsLine = "Kills: " + (mc.player == null ? 0 : mc.player.getScore());
-        String deathsLine = "Deaths: 0";
-        String teamLine = "Team: N/A";
-        String timeLine = "Playtime: " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
-        if (!showSession.isValue()) return new String[]{nameLine, rankLine, teamLine, timeLine};
-        return new String[]{nameLine, rankLine, "", moneyLine, shardsLine, killsLine, deathsLine, teamLine, timeLine};
+    private ScoreLine[] scoreboardLines() {
+        ScoreLine nameLine = line("Name: ", mc.player == null ? "Player" : mc.player.getName().getString(), 0xFFBFC7D5, 0xFF79D46A);
+        ScoreLine rankLine = line("Rank: ", "BOOSTER", 0xFFBFC7D5, 0xFFD449FF);
+        ScoreLine moneyLine = line("$ Money: ", "200M", 0xFFFFD84A, 0xFF7CFF5F);
+        ScoreLine shardsLine = line("Shards: ", "761", 0xFFFF4D6D, 0xFFFF5AAE);
+        ScoreLine killsLine = line("Kills: ", String.valueOf(mc.player == null ? 0 : mc.player.getScore()), 0xFFFF4D4D, 0xFFFFFFFF);
+        ScoreLine deathsLine = line("Deaths: ", "7", 0xFFFF8C2E, 0xFFFFA747);
+        ScoreLine teamLine = line("Team: ", "VOID", 0xFF58A6FF, 0xFF20D0FF);
+        ScoreLine timeLine = line("Playtime: ", LocalTime.now().format(DateTimeFormatter.ofPattern("H'h'")), 0xFFEBCB5C, 0xFFFFD463);
+        if (!showSession.isValue()) return new ScoreLine[]{nameLine, rankLine, teamLine, timeLine};
+        return new ScoreLine[]{nameLine, rankLine, blank(), moneyLine, shardsLine, killsLine, deathsLine, teamLine, timeLine};
     }
 
     private void drawCentered(net.minecraft.client.gui.DrawContext ctx, String text, int x, int y, int width, int color) {
         ctx.drawText(mc.textRenderer, text, x + (width / 2) - (mc.textRenderer.getWidth(text) / 2), y, color, false);
+    }
+
+    private ScoreLine line(String label, String value, int labelColor, int valueColor) {
+        return new ScoreLine(label, value, labelColor, valueColor);
+    }
+
+    private ScoreLine blank() {
+        return new ScoreLine("", "", 0, 0);
+    }
+
+    private record ScoreLine(String label, String value, int labelColor, int valueColor) {
     }
 }
