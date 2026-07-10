@@ -37,6 +37,7 @@ public class AutoPot extends ModuleStructure {
 
     @EventHandler
     public void onTick(TickEvent event) {
+        if (mc.player == null || mc.interactionManager == null) return;
         if (mc.currentScreen != null) return;
         if ((mc.player.getHealth() <= minHealth.getValue() || bool)) {
             if (bool && mc.player.getHealth() >= mc.player.getMaxHealth()) { bool = false; return; }
@@ -60,9 +61,24 @@ public class AutoPot extends ModuleStructure {
                 if (result.isAccepted()) mc.player.swingHand(Hand.MAIN_HAND);
                 throwClock = 0;
             }
-        } else if (prevSlot != -1 || prevPitch != -1) {
+        } else {
+            restorePlayerState();
+        }
+    }
+
+    @Override
+    public void deactivate() {
+        if (mc.player != null) restorePlayerState();
+        reset();
+    }
+
+    private void restorePlayerState() {
+        if (prevSlot != -1) {
             mc.player.getInventory().setSelectedSlot(prevSlot);
             prevSlot = -1;
+        }
+
+        if (prevPitch != -1) {
             mc.player.setPitch(prevPitch);
             prevPitch = -1;
         }

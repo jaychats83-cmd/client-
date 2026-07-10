@@ -12,7 +12,9 @@ import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Items;
+import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
+import starry.mixin.HandledScreenAccessor;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AutoPotRefill extends ModuleStructure {
@@ -30,21 +32,24 @@ public class AutoPotRefill extends ModuleStructure {
 
     @EventHandler
     public void onTick(TickEvent event) {
+        if (mc.player == null || mc.interactionManager == null) return;
         if (!(mc.currentScreen instanceof InventoryScreen inv)) return;
 
         if (mode.isSelected("Hover")) {
-            if (clock < delay.getInt()) { clock++; return; }
+            Slot focusedSlot = ((HandledScreenAccessor) inv).getFocusedSlot();
+            if (focusedSlot == null || !isHealthPotion(focusedSlot.getStack())) {
+                clock = 0;
+                return;
+            }
+
             PlayerInventory inventory = mc.player.getInventory();
             int emptySlot = -1;
             for (int i = 0; i <= 8; i++) { if (inventory.getStack(i).isEmpty()) { emptySlot = i; break; } }
             if (emptySlot == -1) return;
 
-            if (isHealthPotion(inv.getScreenHandler().getCursorStack())) { clock = 0; return; }
-
-            var focusedSlot = inv.getScreenHandler().getCursorStack();
-            if (focusedSlot == null || focusedSlot.isEmpty()) return;
-                mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, 0, emptySlot, SlotActionType.SWAP, mc.player);
-                clock = 0;
+            if (clock < delay.getInt()) { clock++; return; }
+            mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, focusedSlot.id, emptySlot, SlotActionType.SWAP, mc.player);
+            clock = 0;
         }
 
         if (mode.isSelected("Auto")) {
@@ -70,7 +75,7 @@ public class AutoPotRefill extends ModuleStructure {
 
     private int findPotionInInventory() {
         for (int i = 9; i < 36; i++)
-            if (isHealthPotion(mc.player.currentScreenHandler.getSlot(i).getStack())) return i;
+            if (isHealthPotion(mc.player.getInventory().getStack(i))) return i;
         return -1;
     }
 }
