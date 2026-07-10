@@ -9,7 +9,12 @@ import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
 import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.Items;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.SplashPotionItem;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 
@@ -49,7 +54,7 @@ public class AutoPot extends ModuleStructure {
 
                 int potSlot = findHealthPotion();
                 if (potSlot != -1) {
-                    mc.player.getInventory().setSelectedSlot(potSlot);
+                    setInvSlot(potSlot);
                     switchClock = 0;
                 }
             }
@@ -74,7 +79,7 @@ public class AutoPot extends ModuleStructure {
 
     private void restorePlayerState() {
         if (prevSlot != -1) {
-            mc.player.getInventory().setSelectedSlot(prevSlot);
+            setInvSlot(prevSlot);
             prevSlot = -1;
         }
 
@@ -84,16 +89,25 @@ public class AutoPot extends ModuleStructure {
         }
     }
 
-    private boolean isHealthPotion(net.minecraft.item.ItemStack stack) {
-        return stack.isOf(Items.SPLASH_POTION) && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS) != null
-                && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS).potion().isPresent()
-                && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS).potion().get().value().getEffects().stream()
-                .anyMatch(e -> e.getEffectType().equals(StatusEffects.INSTANT_HEALTH.value()));
+    private boolean isHealthPotion(ItemStack stack) {
+        StatusEffectInstance potion = new StatusEffectInstance(
+                Registries.STATUS_EFFECT.getEntry(StatusEffects.INSTANT_HEALTH.value()), 1, 1);
+        var contents = stack.get(DataComponentTypes.POTION_CONTENTS);
+        return stack.getItem() instanceof SplashPotionItem
+                && contents != null
+                && contents.getEffects().toString().contains(potion.toString());
     }
 
     private int findHealthPotion() {
         for (int i = 0; i < 9; i++)
             if (isHealthPotion(mc.player.getInventory().getStack(i))) return i;
         return -1;
+    }
+
+    private void setInvSlot(int slot) {
+        mc.player.getInventory().setSelectedSlot(slot);
+        if (mc.getNetworkHandler() != null) {
+            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+        }
     }
 }

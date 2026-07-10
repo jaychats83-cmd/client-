@@ -9,9 +9,13 @@ import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.SelectSetting;
 import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.SplashPotionItem;
+import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import starry.mixin.HandledScreenAccessor;
@@ -66,11 +70,13 @@ public class AutoPotRefill extends ModuleStructure {
         }
     }
 
-    private boolean isHealthPotion(net.minecraft.item.ItemStack stack) {
-        return stack.isOf(Items.SPLASH_POTION) && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS) != null
-                && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS).potion().isPresent()
-                && stack.get(net.minecraft.component.DataComponentTypes.POTION_CONTENTS).potion().get().value().getEffects().stream()
-                .anyMatch(e -> e.getEffectType().value().equals(StatusEffects.INSTANT_HEALTH));
+    private boolean isHealthPotion(ItemStack stack) {
+        StatusEffectInstance potion = new StatusEffectInstance(
+                Registries.STATUS_EFFECT.getEntry(StatusEffects.INSTANT_HEALTH.value()), 1, 1);
+        var contents = stack.get(DataComponentTypes.POTION_CONTENTS);
+        return stack.getItem() instanceof SplashPotionItem
+                && contents != null
+                && contents.getEffects().toString().contains(potion.toString());
     }
 
     private int findPotionInInventory() {
