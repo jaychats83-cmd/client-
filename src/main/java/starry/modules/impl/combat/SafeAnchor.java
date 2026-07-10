@@ -24,14 +24,15 @@ import org.lwjgl.glfw.GLFW;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SafeAnchor extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Асtivate Key", "Кеy that does safe anchor").setKey(GLFW.GLFW_KEY_V);
-    SliderSettings switchDelay = new SliderSettings("Switch Delay", "").setValue(0f).range(0f, 20f);
+    SliderSettings switchDelay = new SliderSettings("Switch Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings totemSlot = new SliderSettings("Totem Slot", "").setValue(9f).range(1f, 9f);
     SliderSettings range = new SliderSettings("Range", "").setValue(5f).range(3f, 6f);
     BooleanSetting placeAnchor = new BooleanSetting("Place Anchor", "").setValue(true);
     BooleanSetting placeGlowstoneWall = new BooleanSetting("Place Glowstone Wall", "").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing Hand", "").setValue(true);
 
-    private int delayCounter, step;
+    private int step;
+    private long lastStepTime;
     private boolean running, keyWasDown;
     private BlockPos anchorPos, wallPos;
 
@@ -44,7 +45,7 @@ public class SafeAnchor extends ModuleStructure {
     public void activate() { reset(); keyWasDown = false; }
 
     private void reset() {
-        delayCounter = 0; step = 0; running = false;
+        lastStepTime = System.currentTimeMillis(); step = 0; running = false;
         anchorPos = null; wallPos = null;
     }
 
@@ -62,8 +63,8 @@ public class SafeAnchor extends ModuleStructure {
             running = true;
         }
 
-        if (delayCounter < fastDelay(switchDelay)) { delayCounter++; return; }
-        delayCounter = 0;
+        if (System.currentTimeMillis() - lastStepTime < switchDelay.getValue()) return;
+        lastStepTime = System.currentTimeMillis();
 
         switch (step) {
             case 0 -> {
@@ -193,7 +194,4 @@ public class SafeAnchor extends ModuleStructure {
         return GLFW.glfwGetKey(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
     }
 
-    private int fastDelay(SliderSettings setting) {
-        return Math.max(0, Math.round(setting.getValue() * 0.5F));
-    }
 }

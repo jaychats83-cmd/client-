@@ -12,6 +12,7 @@ import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.block.AbstractRailBlock;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -26,30 +27,43 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CartPvPModule extends ModuleStructure {
     SelectSetting mode = new SelectSetting("Mode", "").value("Auto Cart", "Cart Trap", "Safe Cart").selected("Auto Cart");
+    SelectSetting targetMode = new SelectSetting("Target", "").value("Nearest", "Crosshair").selected("Nearest");
+    SelectSetting railMode = new SelectSetting("Rail", "").value("Activator", "Any", "Normal", "Powered", "Detector").selected("Activator");
+    SelectSetting cartMode = new SelectSetting("Cart", "").value("TNT", "Any", "Normal").selected("TNT");
+    SelectSetting order = new SelectSetting("Order", "").value("Trap First", "Rail First", "Cart First").selected("Trap First");
     SliderSettings range = new SliderSettings("Range", "").setValue(5f).range(1f, 8f);
     SliderSettings delayMs = new SliderSettings("Delay MS", "").setValue(75f).range(0f, 1000f);
     SliderSettings safeDistance = new SliderSettings("Safe Distance", "").setValue(3f).range(0f, 8f);
+    SliderSettings cartAmount = new SliderSettings("Cart Amount", "").setValue(1f).range(1f, 4f);
     BooleanSetting preferActivatorRail = new BooleanSetting("Activator Rail", "").setValue(true);
     BooleanSetting preferTntCart = new BooleanSetting("Prefer TNT Cart", "").setValue(true);
+    BooleanSetting seeOnly = new BooleanSetting("See Only", "").setValue(false);
     BooleanSetting rotate = new BooleanSetting("Rotate", "").setValue(true);
+    BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
+    BooleanSetting switchBack = new BooleanSetting("Switch Back", "").setValue(true);
+    BooleanSetting trapFeet = new BooleanSetting("Trap Feet", "").setValue(true);
     BooleanSetting trapHead = new BooleanSetting("Trap Head", "").setValue(true);
 
     private long lastActionTime;
+    private int previousSlot = -1;
 
     public CartPvPModule() {
         super("Cart PvP", ModuleCategory.CPVP);
-        settings(mode, range, delayMs, safeDistance, preferActivatorRail, preferTntCart, rotate, trapHead);
+        settings(mode, targetMode, railMode, cartMode, order, range, delayMs, safeDistance, cartAmount,
+                preferActivatorRail, preferTntCart, seeOnly, rotate, swing, switchBack, trapFeet, trapHead);
     }
 
     @Override
-    public void activate() { lastActionTime = 0; }
+    public void activate() { lastActionTime = 0; previousSlot = -1; }
+    @Override
+    public void deactivate() { restoreSlot(); }
 
     @EventHandler
     public void onTick(TickEvent event) {
         if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) return;
         if (System.currentTimeMillis() - lastActionTime < delayMs.getValue()) return;
 
-        PlayerEntity target = findNearestPlayer((float) range.getValue());
+        PlayerEntity target = findTarget((float) range.getValue());
         if (target == null || !target.isAlive()) return;
 
         if (mode.isSelected("Safe Cart") && mc.player.distanceTo(target) < safeDistance.getValue()) return;
@@ -64,8 +78,7 @@ public class CartPvPModule extends ModuleStructure {
         if (base == null) return;
 
         BlockPos targetFeet = target.getBlockPos();
-        if (mode.isSelected("Cart Trap") && trapHead.isValue() && placeBlockIfAir(targetFeet.up(2), Items.COBWEB)) return;
-        if (mode.isSelected("Cart Trap") && placeBlockIfAir(targetFeet, Items.COBWEB)) return;
+        if (mode.isSelected("Cart Trap") && order.isSelected("Trap First") && placeTrap(targetFeet)) return;
 
         if (!(mc.world.getBlockState(base).getBlock() instanceof AbstractRailBlock)) {
             if (mc.world.isAir(base) && selectRail() && click(base.down(), Direction.UP)) {
@@ -74,9 +87,26 @@ public class CartPvPModule extends ModuleStructure {
             return;
         }
 
-        if (selectCart() && click(base, Direction.UP)) {
+        if (mode.isSelected("Cart Trap") && order.isSelected("Rail First") && placeTrap(targetFeet)) return;
+
+        if (selectCart() && placeCarts(base)) {
             lastActionTime = System.currentTimeMillis();
+            restoreSlot();
         }
+    }
+
+    private boolean placeTrap(BlockPos targetFeet) {
+        if (trapHead.isValue() && placeBlockIfAir(targetFeet.up(2), Items.COBWEB)) return true;
+        return trapFeet.isValue() && placeBlockIfAir(targetFeet, Items.COBWEB);
+    }
+
+    private boolean placeCarts(BlockPos base) {
+        boolean placed = false;
+        for (int i = 0; i < cartAmount.getInt(); i++) {
+            if (!click(base, Direction.UP)) break;
+            placed = true;
+        }
+        return placed;
     }
 
     private boolean placeBlockIfAir(BlockPos pos, net.minecraft.item.Item item) {
@@ -92,19 +122,24 @@ public class CartPvPModule extends ModuleStructure {
     }
 
     private boolean selectRail() {
-        if (preferActivatorRail.isValue() && selectItem(Items.ACTIVATOR_RAIL)) return true;
+        if ((preferActivatorRail.isValue() || railMode.isSelected("Activator")) && selectItem(Items.ACTIVATOR_RAIL)) return true;
+        if (railMode.isSelected("Normal")) return selectItem(Items.RAIL);
+        if (railMode.isSelected("Powered")) return selectItem(Items.POWERED_RAIL);
+        if (railMode.isSelected("Detector")) return selectItem(Items.DETECTOR_RAIL);
         return selectItem(i -> i == Items.RAIL || i == Items.POWERED_RAIL || i == Items.ACTIVATOR_RAIL || i == Items.DETECTOR_RAIL);
     }
 
     private boolean selectCart() {
-        if (preferTntCart.isValue() && selectItem(Items.TNT_MINECART)) return true;
+        if ((preferTntCart.isValue() || cartMode.isSelected("TNT")) && selectItem(Items.TNT_MINECART)) return true;
+        if (cartMode.isSelected("Normal")) return selectItem(Items.MINECART);
         return selectItem(i -> i == Items.TNT_MINECART || i == Items.MINECART);
     }
 
     private boolean selectItem(java.util.function.Predicate<net.minecraft.item.Item> predicate) {
         for (int i = 0; i < 9; i++)
             if (predicate.test(mc.player.getInventory().getStack(i).getItem())) {
-                mc.player.getInventory().setSelectedSlot(i);
+                saveSlot();
+                selectSlot(i);
                 return true;
             }
         return false;
@@ -140,14 +175,40 @@ public class CartPvPModule extends ModuleStructure {
         if (mc.world.getBlockState(block).isAir()) return false;
         BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(block).add(Vec3d.of(side.getVector()).multiply(0.5)), side, block, false);
         ActionResult result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-        if (result.isAccepted()) { mc.player.swingHand(Hand.MAIN_HAND); return true; }
+        if (result.isAccepted()) { if (swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND); return true; }
         return false;
     }
 
-    private PlayerEntity findNearestPlayer(float range) {
+    private PlayerEntity findTarget(float range) {
+        if (targetMode.isSelected("Crosshair")
+                && mc.crosshairTarget instanceof net.minecraft.util.hit.EntityHitResult hit
+                && hit.getEntity() instanceof PlayerEntity player
+                && isValidTarget(player, range)) return player;
+
         return mc.world.getPlayers().stream()
-                .filter(p -> p != mc.player && p.isAlive() && mc.player.distanceTo(p) <= range)
+                .filter(p -> isValidTarget(p, range))
                 .min(Comparator.comparingDouble(p -> mc.player.distanceTo(p)))
                 .orElse(null);
+    }
+
+    private boolean isValidTarget(PlayerEntity player, float range) {
+        return player != mc.player && player.isAlive() && mc.player.distanceTo(player) <= range
+                && (!seeOnly.isValue() || mc.player.canSee(player));
+    }
+
+    private void saveSlot() {
+        if (previousSlot == -1) previousSlot = mc.player.getInventory().getSelectedSlot();
+    }
+
+    private void restoreSlot() {
+        if (switchBack.isValue() && mc.player != null && previousSlot >= 0 && previousSlot < 9)
+            selectSlot(previousSlot);
+        previousSlot = -1;
+    }
+
+    private void selectSlot(int slot) {
+        if (slot < 0 || slot > 8) return;
+        mc.player.getInventory().setSelectedSlot(slot);
+        if (mc.getNetworkHandler() != null) mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
     }
 }

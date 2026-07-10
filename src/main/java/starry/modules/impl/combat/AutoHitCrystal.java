@@ -26,16 +26,16 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AutoHitCrystal extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Асtivate Key", "Кеy that does hit crystalling").setKey(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
     BooleanSetting checkPlace = new BooleanSetting("Check Place", "Checks if you can place the obsidian on that block").setValue(false);
-    SliderSettings switchDelay = new SliderSettings("Switch Delay", "").setValue(0f).range(0, 20);
+    SliderSettings switchDelay = new SliderSettings("Switch Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings switchChance = new SliderSettings("Switch Chance", "").setValue(100f).range(0f, 100f);
-    SliderSettings placeDelay = new SliderSettings("Place Delay", "").setValue(0f).range(0, 20);
+    SliderSettings placeDelay = new SliderSettings("Place Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings placeChance = new SliderSettings("Place Chance", "Randomization").setValue(100f).range(0f, 100f);
     BooleanSetting workWithTotem = new BooleanSetting("Work With Totem", "").setValue(false);
     BooleanSetting workWithCrystal = new BooleanSetting("Work With Crystal", "").setValue(false);
     BooleanSetting clickSimulation = new BooleanSetting("Click Simulation", "Makes the CPS hud think you're legit").setValue(false);
     BooleanSetting swordSwap = new BooleanSetting("Sword Swap", "").setValue(true);
 
-    private int placeClock, switchClock;
+    private long lastPlaceTime, lastSwitchTime;
     private boolean active, crystalling, crystalSelected;
 
     public AutoHitCrystal() {
@@ -68,18 +68,18 @@ public class AutoHitCrystal extends ModuleStructure {
 
                     mc.options.useKey.setPressed(false);
                     if (!mc.player.isHolding(Items.OBSIDIAN)) {
-                        if (switchClock > 0) { switchClock--; return; }
+                        if (!delayPassed(lastSwitchTime, switchDelay)) return;
                         if (ThreadLocalRandom.current().nextInt(1, 101) <= switchChance.getValue()) {
-                            switchClock = fastDelay(switchDelay);
+                            lastSwitchTime = System.currentTimeMillis();
                             selectItem(Items.OBSIDIAN);
                         }
                     }
                     if (mc.player.isHolding(Items.OBSIDIAN)) {
-                        if (placeClock > 0) { placeClock--; return; }
+                        if (!delayPassed(lastPlaceTime, placeDelay)) return;
                         if (ThreadLocalRandom.current().nextInt(1, 101) <= placeChance.getValue()) {
                             mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
                             mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-                            placeClock = fastDelay(placeDelay);
+                            lastPlaceTime = System.currentTimeMillis();
                             crystalling = true;
                         }
                     }
@@ -88,10 +88,10 @@ public class AutoHitCrystal extends ModuleStructure {
 
             if (crystalling) {
                 if (!mc.player.isHolding(Items.END_CRYSTAL) && !crystalSelected) {
-                    if (switchClock > 0) { switchClock--; return; }
+                    if (!delayPassed(lastSwitchTime, switchDelay)) return;
                     if (ThreadLocalRandom.current().nextInt(1, 101) <= switchChance.getValue()) {
                         crystalSelected = selectItem(Items.END_CRYSTAL);
-                        switchClock = fastDelay(switchDelay);
+                        lastSwitchTime = System.currentTimeMillis();
                     }
                 }
                 if (mc.player.isHolding(Items.END_CRYSTAL)) {
@@ -124,7 +124,7 @@ public class AutoHitCrystal extends ModuleStructure {
     }
 
     private void reset() {
-        placeClock = fastDelay(placeDelay); switchClock = fastDelay(switchDelay);
+        lastPlaceTime = 0; lastSwitchTime = 0;
         active = false; crystalling = false; crystalSelected = false;
     }
 
@@ -150,7 +150,7 @@ public class AutoHitCrystal extends ModuleStructure {
         return false;
     }
 
-    private int fastDelay(SliderSettings setting) {
-        return Math.max(0, Math.round(setting.getValue() * 0.5F));
+    private boolean delayPassed(long lastActionTime, SliderSettings setting) {
+        return lastActionTime == 0 || System.currentTimeMillis() - lastActionTime >= setting.getValue();
     }
 }

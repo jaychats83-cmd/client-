@@ -23,7 +23,7 @@ import starry.modules.module.setting.implement.SliderSettings;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AutoDTAP extends ModuleStructure {
-    SliderSettings stepDelay = new SliderSettings("Step Delay", "Delay between DTAP actions").setValue(1f).range(0f, 10f);
+    SliderSettings stepDelay = new SliderSettings("Step Delay MS", "Delay between DTAP actions").setValue(50f).range(0f, 500f);
     SliderSettings range = new SliderSettings("Range", "").setValue(4.5f).range(2f, 6f);
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
@@ -32,7 +32,7 @@ public class AutoDTAP extends ModuleStructure {
     PlayerEntity target;
     BlockPos obsidianPos;
     int stage;
-    int delayClock;
+    long lastStageTime;
     int originalSlot = -1;
     boolean wasPressed;
 
@@ -66,7 +66,7 @@ public class AutoDTAP extends ModuleStructure {
                 originalSlot = mc.player.getInventory().getSelectedSlot();
                 obsidianPos = findObsidianPos(target);
                 stage = 1;
-                delayClock = 0;
+                lastStageTime = 0;
             }
         }
         wasPressed = pressed;
@@ -78,10 +78,7 @@ public class AutoDTAP extends ModuleStructure {
             return;
         }
 
-        if (delayClock > 0) {
-            delayClock--;
-            return;
-        }
+        if (lastStageTime != 0 && System.currentTimeMillis() - lastStageTime < stepDelay.getValue()) return;
 
         switch (stage) {
             case 1 -> {
@@ -121,7 +118,7 @@ public class AutoDTAP extends ModuleStructure {
 
     private void nextStage() {
         stage++;
-        delayClock = Math.max(0, Math.round(stepDelay.getValue() * 0.5F));
+        lastStageTime = System.currentTimeMillis();
     }
 
     private PlayerEntity findCrosshairPlayer() {
@@ -215,7 +212,7 @@ public class AutoDTAP extends ModuleStructure {
         target = null;
         obsidianPos = null;
         stage = 0;
-        delayClock = 0;
+        lastStageTime = 0;
         originalSlot = -1;
     }
 }

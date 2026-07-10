@@ -22,18 +22,18 @@ import net.minecraft.util.math.Vec3d;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OneNineEightMacro extends ModuleStructure {
-    SliderSettings obbyDelay = new SliderSettings("Obby Delay", "").setValue(0f).range(0f, 20f);
-    SliderSettings crystalDelay = new SliderSettings("Crystal Delay", "").setValue(0f).range(0f, 20f);
+    SliderSettings obbyDelay = new SliderSettings("Obby Delay MS", "").setValue(0f).range(0f, 1000f);
+    SliderSettings crystalDelay = new SliderSettings("Crystal Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings placeChance = new SliderSettings("Place Chance", "").setValue(100f).range(0f, 100f);
     SliderSettings breakChance = new SliderSettings("Break Chance", "").setValue(100f).range(0f, 100f);
     BooleanSetting silentSwitch = new BooleanSetting("Silent Switch", "").setValue(false);
     BooleanSetting breakCrystal = new BooleanSetting("Break Crystal", "").setValue(true);
-    SliderSettings breakDelay = new SliderSettings("Break Delay", "").setValue(20f).range(0f, 100f);
+    SliderSettings breakDelay = new SliderSettings("Break Delay MS", "").setValue(1000f).range(0f, 5000f);
 
     private enum MacroState { IDLE, PLACE_OBI, WAIT_OBI, PLACE_CRYSTAL, BREAK_CRYSTAL }
     private MacroState state = MacroState.IDLE;
     private BlockPos basePos;
-    private int obbyClock, crystalClock;
+    private long lastObbyTime, lastCrystalTime;
 
     public OneNineEightMacro() {
         super("One Nine Eight Macro", ModuleCategory.CPVP);
@@ -44,16 +44,13 @@ public class OneNineEightMacro extends ModuleStructure {
     public void activate() { reset(); }
 
     private void reset() {
-        obbyClock = 0; crystalClock = 0;
+        lastObbyTime = 0; lastCrystalTime = 0;
         state = MacroState.IDLE; basePos = null;
     }
 
     @EventHandler
     public void onTick(TickEvent event) {
         if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) { reset(); return; }
-        if (obbyClock > 0) obbyClock--;
-        if (crystalClock > 0) crystalClock--;
-
         tryBreakCrystal();
         for (int i = 0; i < 4; i++) {
             MacroState before = state;
@@ -79,11 +76,11 @@ public class OneNineEightMacro extends ModuleStructure {
     }
 
     private void placeObsidian() {
-        if (obbyClock > 0 || !roll(placeChance.getInt())) return;
+        if (!delayPassed(lastObbyTime, obbyDelay) || !roll(placeChance.getInt())) return;
         if (!(mc.player.raycast(5.0, 1.0F, false) instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) { state = MacroState.IDLE; return; }
         if (!selectItem(Items.OBSIDIAN)) return;
         placeBlock(hit);
-        obbyClock = fastDelay(obbyDelay);
+        lastObbyTime = System.currentTimeMillis();
         state = MacroState.WAIT_OBI;
     }
 
@@ -95,14 +92,14 @@ public class OneNineEightMacro extends ModuleStructure {
     }
 
     private void placeCrystal() {
-        if (crystalClock > 0 || !isCrystalBase(basePos)) return;
+        if (!delayPassed(lastCrystalTime, crystalDelay) || !isCrystalBase(basePos)) return;
         if (!canPlaceCrystal(basePos)) { state = MacroState.BREAK_CRYSTAL; return; }
         if (!roll(placeChance.getInt())) return;
         if (!selectItem(Items.END_CRYSTAL)) return;
 
         BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(basePos).add(0, 0.5, 0), Direction.UP, basePos, false);
         placeBlock(hit);
-        crystalClock = fastDelay(crystalDelay);
+        lastCrystalTime = System.currentTimeMillis();
         state = MacroState.BREAK_CRYSTAL;
     }
 
@@ -111,14 +108,14 @@ public class OneNineEightMacro extends ModuleStructure {
     }
 
     private void tryBreakCrystal() {
-        if (!breakCrystal.isValue() || crystalClock > 0 || !roll(breakChance.getInt())) return;
+        if (!breakCrystal.isValue() || !delayPassed(lastCrystalTime, breakDelay) || !roll(breakChance.getInt())) return;
 
         if (mc.crosshairTarget instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof EndCrystalEntity crystal) {
-            attackCrystal(crystal); crystalClock = fastDelay(breakDelay); return;
+            attackCrystal(crystal); lastCrystalTime = System.currentTimeMillis(); return;
         }
         for (Entity entity : mc.world.getEntities()) {
             if (entity instanceof EndCrystalEntity crystal && crystal.distanceTo(mc.player) < 9.0F) {
-                attackCrystal(crystal); crystalClock = fastDelay(breakDelay); return;
+                attackCrystal(crystal); lastCrystalTime = System.currentTimeMillis(); return;
             }
         }
     }
@@ -150,7 +147,7 @@ public class OneNineEightMacro extends ModuleStructure {
         mc.player.swingHand(Hand.MAIN_HAND);
     }
 
-    private int fastDelay(SliderSettings setting) {
-        return Math.max(0, Math.round(setting.getValue() * 0.5F));
+    private boolean delayPassed(long lastActionTime, SliderSettings setting) {
+        return lastActionTime == 0 || System.currentTimeMillis() - lastActionTime >= setting.getValue();
     }
 }

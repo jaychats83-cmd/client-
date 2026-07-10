@@ -14,23 +14,33 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.WorldChunk;
 
 import java.awt.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SusChunkESP extends ModuleStructure {
-    SliderSettings minScore = new SliderSettings("Min Score", "").setValue(8f).range(1f, 80f);
+    SliderSettings minScore = new SliderSettings("Min Score", "").setValue(12f).range(1f, 120f);
     SliderSettings rangeChunks = new SliderSettings("Range Chunks", "").setValue(12f).range(1f, 32f);
     SliderSettings alpha = new SliderSettings("Alpha", "").setValue(62f).range(15f, 180f);
+    SliderSettings minStorage = new SliderSettings("Min Storage", "Minimum storage blocks needed before marking a chunk").setValue(2f).range(0f, 24f);
+    SliderSettings clusterBonus = new SliderSettings("Cluster Bonus", "Extra score per storage block in a cluster").setValue(3f).range(0f, 12f);
+    SliderSettings surfaceOffset = new SliderSettings("Surface Offset", "Vertical offset above the surface").setValue(0.04f).range(-2f, 4f);
+    SliderSettings thickness = new SliderSettings("Thickness", "Render plate thickness").setValue(0.08f).range(0.02f, 2f);
     BooleanSetting fill = new BooleanSetting("Fill", "").setValue(true);
     BooleanSetting outline = new BooleanSetting("Outline", "").setValue(true);
     BooleanSetting tracers = new BooleanSetting("Tracers", "").setValue(false);
     BooleanSetting markStorageOnly = new BooleanSetting("Storage Only", "").setValue(false);
+    BooleanSetting requireStorage = new BooleanSetting("Require Storage", "").setValue(true);
+    BooleanSetting includeUtility = new BooleanSetting("Utility Blocks", "Count hoppers, furnaces, and enchanting tables").setValue(false);
+    BooleanSetting surfaceHeight = new BooleanSetting("Surface Height", "Render on chunk surface instead of player Y").setValue(true);
+    BooleanSetting loadedOnly = new BooleanSetting("Loaded Only", "Only scan loaded chunks").setValue(true);
 
     public SusChunkESP() {
         super("Chunk ESP [Sus Chunk]", ModuleCategory.ESP);
-        settings(minScore, rangeChunks, alpha, fill, outline, tracers, markStorageOnly);
+        settings(minScore, rangeChunks, minStorage, clusterBonus, alpha, surfaceOffset, thickness,
+                fill, outline, tracers, markStorageOnly, requireStorage, includeUtility, surfaceHeight, loadedOnly);
     }
 
     @EventHandler
@@ -41,36 +51,58 @@ public class SusChunkESP extends ModuleStructure {
         int range = rangeChunks.getInt();
         for (int dx = -range; dx <= range; dx++) {
             for (int dz = -range; dz <= range; dz++) {
-                var chunk = mc.world.getChunkManager().getChunk(playerChunk.x + dx, playerChunk.z + dz);
+                int chunkX = playerChunk.x + dx;
+                int chunkZ = playerChunk.z + dz;
+                if (loadedOnly.isValue() && !mc.world.getChunkManager().isChunkLoaded(chunkX, chunkZ)) continue;
+                var chunk = mc.world.getChunkManager().getChunk(chunkX, chunkZ);
                 if (!(chunk instanceof WorldChunk worldChunk)) continue;
                 if (chunk == null) continue;
-                int score = scoreChunk(worldChunk);
-                if (score < minScore.getInt()) continue;
-                renderChunk(worldChunk.getPos(), score);
+                ScoreData score = scoreChunk(worldChunk);
+                if (requireStorage.isValue() && score.storageCount < minStorage.getInt() && score.spawnerCount == 0) continue;
+                if (score.total < minScore.getInt()) continue;
+                renderChunk(worldChunk.getPos(), score.total);
             }
         }
     }
 
-    private int scoreChunk(WorldChunk chunk) {
-        int score = 0;
+    private ScoreData scoreChunk(WorldChunk chunk) {
+        ScoreData data = new ScoreData();
         for (BlockPos blockPos : chunk.getBlockEntityPositions()) {
             BlockEntity entity = mc.world.getBlockEntity(blockPos);
             if (entity == null) continue;
-            score += scoreEntity(entity);
+            scoreEntity(entity, data);
         }
-        return score;
+        if (data.storageCount >= minStorage.getInt()) {
+            data.total += Math.max(0, data.storageCount - Math.max(0, minStorage.getInt()) + 1) * clusterBonus.getInt();
+        }
+        return data;
     }
 
-    private int scoreEntity(BlockEntity entity) {
-        if (entity instanceof ShulkerBoxBlockEntity) return 7;
-        if (entity instanceof TrappedChestBlockEntity) return 6;
-        if (entity instanceof ChestBlockEntity || entity instanceof BarrelBlockEntity) return 5;
-        if (entity instanceof MobSpawnerBlockEntity) return 5;
-        if (markStorageOnly.isValue()) return 0;
-        if (entity instanceof HopperBlockEntity) return 3;
-        if (entity instanceof FurnaceBlockEntity) return 2;
-        if (entity instanceof EnchantingTableBlockEntity) return 2;
-        return 0;
+    private void scoreEntity(BlockEntity entity, ScoreData data) {
+        if (entity instanceof ShulkerBoxBlockEntity) {
+            data.storageCount++;
+            data.total += 10;
+            return;
+        }
+        if (entity instanceof TrappedChestBlockEntity) {
+            data.storageCount++;
+            data.total += 8;
+            return;
+        }
+        if (entity instanceof ChestBlockEntity || entity instanceof BarrelBlockEntity) {
+            data.storageCount++;
+            data.total += 5;
+            return;
+        }
+        if (entity instanceof MobSpawnerBlockEntity) {
+            data.spawnerCount++;
+            data.total += 12;
+            return;
+        }
+        if (markStorageOnly.isValue() || !includeUtility.isValue()) return;
+        if (entity instanceof HopperBlockEntity) data.total += 3;
+        if (entity instanceof FurnaceBlockEntity) data.total += 1;
+        if (entity instanceof EnchantingTableBlockEntity) data.total += 2;
     }
 
     private void renderChunk(ChunkPos chunkPos, int score) {
@@ -78,8 +110,8 @@ public class SusChunkESP extends ModuleStructure {
         int z1 = chunkPos.getStartZ();
         int x2 = x1 + 16;
         int z2 = z1 + 16;
-        float y = (float) Math.floor(mc.player.getY()) - 0.02F;
-        Box box = new Box(x1, y, z1, x2, y + 0.08F, z2);
+        float y = surfaceHeight.isValue() ? surfaceY(chunkPos) : (float) Math.floor(mc.player.getY()) - 0.02F;
+        Box box = new Box(x1, y, z1, x2, y + thickness.getValue(), z2);
 
         if (fill.isValue()) {
             Render3D.drawBox(box, colorForScore(score, alpha.getInt()).getRGB(), 1.4F, false, true, false);
@@ -95,9 +127,30 @@ public class SusChunkESP extends ModuleStructure {
         }
     }
 
+    private float surfaceY(ChunkPos chunkPos) {
+        int x1 = chunkPos.getStartX();
+        int z1 = chunkPos.getStartZ();
+        int x2 = x1 + 15;
+        int z2 = z1 + 15;
+        int centerX = x1 + 8;
+        int centerZ = z1 + 8;
+        int top = Math.max(
+                Math.max(mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, x1, z1), mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, x2, z1)),
+                Math.max(mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, x1, z2), mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, x2, z2))
+        );
+        top = Math.max(top, mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, centerX, centerZ));
+        return top + surfaceOffset.getValue();
+    }
+
     private Color colorForScore(int score, int a) {
         if (score >= minScore.getInt() * 3) return new Color(255, 72, 92, a);
         if (score >= minScore.getInt() * 2) return new Color(255, 168, 44, a);
         return new Color(63, 190, 255, a);
+    }
+
+    private static class ScoreData {
+        int total;
+        int storageCount;
+        int spawnerCount;
     }
 }

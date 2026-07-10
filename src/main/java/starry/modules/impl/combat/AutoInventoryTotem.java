@@ -21,13 +21,13 @@ import java.util.concurrent.ThreadLocalRandom;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AutoInventoryTotem extends ModuleStructure {
     SelectSetting mode = new SelectSetting("Mode", "Whether to randomize the toteming pattern or no").value("Blatant", "Random").selected("Blatant");
-    SliderSettings delay = new SliderSettings("Delay", "").setValue(0f).range(0, 20);
+    SliderSettings delay = new SliderSettings("Delay MS", "").setValue(0f).range(0f, 1000f);
     BooleanSetting hotbar = new BooleanSetting("Hotbar", "Puts a totem in your hotbar as well").setValue(true);
     SliderSettings totemSlot = new SliderSettings("Totem Slot", "Your preferred totem slot").setValue(1f).range(1, 9);
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "Switches to totem slot when going inside the inventory").setValue(false);
     BooleanSetting forceTotem = new BooleanSetting("Force Totem", "Puts the totem in the slot, regardless if its space is taken up by something else").setValue(false);
 
-    private int clock = -1;
+    private long lastActionTime = -1;
 
     public AutoInventoryTotem() {
         super("Auto Inventory Totem", ModuleCategory.CPVP);
@@ -35,30 +35,29 @@ public class AutoInventoryTotem extends ModuleStructure {
     }
 
     @Override
-    public void activate() { clock = -1; }
+    public void activate() { lastActionTime = -1; }
 
     @EventHandler
     public void onTick(TickEvent event) {
         if (mc.player == null || mc.interactionManager == null) return;
 
         if (!(mc.currentScreen instanceof InventoryScreen)) {
-            clock = -1;
+            lastActionTime = -1;
             return;
         }
 
-        if (clock == -1) clock = delayTicks();
-        if (clock > 0) clock--;
+        if (lastActionTime == -1) lastActionTime = System.currentTimeMillis();
 
         if (autoSwitch.isValue()) mc.player.getInventory().setSelectedSlot(totemSlot.getInt() - 1);
 
-        if (clock <= 0) {
+        if (System.currentTimeMillis() - lastActionTime >= delay.getValue()) {
             InventoryScreen inv = (InventoryScreen) mc.currentScreen;
             if (mc.player.getOffHandStack().getItem() != Items.TOTEM_OF_UNDYING) {
                 int slot = mode.isSelected("Blatant") ? findTotemSlot() : findRandomTotemSlot();
                 if (slot != -1) {
                     moveCursorToSlot(inv, slot);
                     mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, slot, 40, SlotActionType.SWAP, mc.player);
-                    clock = delayTicks();
+                    lastActionTime = System.currentTimeMillis();
                     return;
                 }
             }
@@ -70,7 +69,7 @@ public class AutoInventoryTotem extends ModuleStructure {
                     if (slot != -1) {
                         moveCursorToSlot(inv, slot);
                         mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, slot, mc.player.getInventory().getSelectedSlot(), SlotActionType.SWAP, mc.player);
-                        clock = delayTicks();
+                        lastActionTime = System.currentTimeMillis();
                         return;
                     }
                 }
@@ -110,10 +109,6 @@ public class AutoInventoryTotem extends ModuleStructure {
             if (mc.player.currentScreenHandler.getSlot(i).getStack().isOf(Items.TOTEM_OF_UNDYING)) count++;
         }
         return count;
-    }
-
-    private int delayTicks() {
-        return Math.max(0, Math.round(delay.getValue() * 0.5F));
     }
 
     private void moveCursorToSlot(InventoryScreen screen, int slotId) {

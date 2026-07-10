@@ -16,17 +16,17 @@ import starry.modules.module.setting.implement.SliderSettings;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TotemKB extends ModuleStructure {
-    SliderSettings switchBackTicks = new SliderSettings("Switch Back Ticks", "").setValue(1f).range(0f, 8f);
+    SliderSettings switchBackDelay = new SliderSettings("Switch Back Delay MS", "").setValue(50f).range(0f, 400f);
     BooleanSetting onlyPlayers = new BooleanSetting("Only Players", "").setValue(true);
     BooleanSetting requireTotem = new BooleanSetting("Require Totem", "").setValue(true);
     BooleanSetting switchBack = new BooleanSetting("Switch Back", "").setValue(true);
 
     int totemSlot = -1;
-    int restoreClock;
+    long switchTime;
 
     public TotemKB() {
         super("Totem KB", "Swaps from totem to sword for a hit, then holds the totem again", ModuleCategory.CPVP);
-        settings(switchBackTicks, onlyPlayers, requireTotem, switchBack);
+        settings(switchBackDelay, onlyPlayers, requireTotem, switchBack);
     }
 
     @Override
@@ -56,17 +56,14 @@ public class TotemKB extends ModuleStructure {
         if (swordSlot == -1 || swordSlot == selectedSlot) return;
 
         totemSlot = selectedSlot;
-        restoreClock = switchBackTicks.getInt();
+        switchTime = System.currentTimeMillis();
         mc.player.getInventory().setSelectedSlot(swordSlot);
     }
 
     @EventHandler
     public void onTick(TickEvent event) {
         if (mc.player == null || totemSlot < 0 || !switchBack.isValue()) return;
-        if (restoreClock > 0) {
-            restoreClock--;
-            return;
-        }
+        if (System.currentTimeMillis() - switchTime < switchBackDelay.getValue()) return;
         restoreTotem();
         reset();
     }
@@ -101,6 +98,6 @@ public class TotemKB extends ModuleStructure {
 
     private void reset() {
         totemSlot = -1;
-        restoreClock = 0;
+        switchTime = 0;
     }
 }

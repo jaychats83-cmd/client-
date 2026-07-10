@@ -37,8 +37,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AutoCrystal extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Activate Key", "Key that does the crystalling").setKey(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
-    SliderSettings placeDelay = new SliderSettings("Place Delay", "").setValue(0f).range(0, 20);
-    SliderSettings breakDelay = new SliderSettings("Break Delay", "").setValue(0f).range(0, 20);
+    SliderSettings placeDelay = new SliderSettings("Place Delay MS", "").setValue(0f).range(0f, 1000f);
+    SliderSettings breakDelay = new SliderSettings("Break Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings placeChance = new SliderSettings("Place Chance", "Randomization").setValue(100f).range(0f, 100f);
     SliderSettings breakChance = new SliderSettings("Break Chance", "Randomization").setValue(100f).range(0f, 100f);
     BooleanSetting stopOnKill = new BooleanSetting("Stop on Kill", "Won't crystal if a dead player is nearby").setValue(false);
@@ -48,8 +48,8 @@ public class AutoCrystal extends ModuleStructure {
     BooleanSetting antiWeakness = new BooleanSetting("Anti-Weakness", "Silently switches to a sword and then hits the crystal if you have weakness").setValue(false);
     SliderSettings particleChance = new SliderSettings("Particle Chance", "Adds block breaking particles to make it seem more legit from your POV").setValue(20f).range(0f, 100f);
 
-    int placeClock;
-    int breakClock;
+    long lastPlaceTime;
+    long lastBreakTime;
     boolean placing;
     public boolean crystalling;
 
@@ -60,8 +60,8 @@ public class AutoCrystal extends ModuleStructure {
 
     @Override
     public void activate() {
-        placeClock = 0;
-        breakClock = 0;
+        lastPlaceTime = 0;
+        lastBreakTime = 0;
         placing = false;
         crystalling = false;
     }
@@ -76,22 +76,19 @@ public class AutoCrystal extends ModuleStructure {
     public void onTick(TickEvent event) {
         if (mc.currentScreen != null || mc.player == null || mc.world == null || mc.interactionManager == null) return;
 
-        boolean dontPlace = placeClock != 0;
-        boolean dontBreak = breakClock != 0;
+        boolean dontPlace = !delayPassed(lastPlaceTime, placeDelay);
+        boolean dontBreak = !delayPassed(lastBreakTime, breakDelay);
 
         if (stopOnKill.isValue() && isDeadBodyNearby()) return;
 
         int randomInt = randomInt(1, 100);
 
-        if (dontPlace) placeClock--;
-        if (dontBreak) breakClock--;
-
         if (mc.player.isUsingItem()) return;
         if (damageTick.isValue() && damageTickCheck()) return;
 
         if (activateKey.getKey() != GLFW.GLFW_KEY_UNKNOWN && !isKeyPressed(activateKey.getKey())) {
-            placeClock = 0;
-            breakClock = 0;
+            lastPlaceTime = 0;
+            lastBreakTime = 0;
             crystalling = false;
             return;
         }
@@ -138,7 +135,7 @@ public class AutoCrystal extends ModuleStructure {
                         mc.player.swingHand(Hand.MAIN_HAND);
                     }
 
-                    placeClock = fastDelay(placeDelay);
+                    lastPlaceTime = System.currentTimeMillis();
                 }
             }
 
@@ -150,7 +147,7 @@ public class AutoCrystal extends ModuleStructure {
                     mc.interactionManager.attackBlock(hit.getBlockPos(), hit.getSide());
                     mc.player.swingHand(Hand.MAIN_HAND);
                     mc.interactionManager.updateBlockBreakingProgress(hit.getBlockPos(), hit.getSide());
-                    breakClock = fastDelay(breakDelay);
+                    lastBreakTime = System.currentTimeMillis();
                 }
 
                 if (!dontPlace && randomInt <= placeChance.getInt() && dontBreak) {
@@ -163,7 +160,7 @@ public class AutoCrystal extends ModuleStructure {
             if (!dontBreak && randomInt <= breakChance.getInt()) {
                 simulateClick(GLFW.GLFW_MOUSE_BUTTON_LEFT);
                 mc.player.swingHand(Hand.MAIN_HAND);
-                breakClock = fastDelay(breakDelay);
+                lastBreakTime = System.currentTimeMillis();
             }
 
             if (!dontPlace && randomInt <= placeChance.getInt() && dontBreak) {
@@ -187,7 +184,7 @@ public class AutoCrystal extends ModuleStructure {
         simulateClick(GLFW.GLFW_MOUSE_BUTTON_LEFT);
         attackEntity(entity);
         mc.player.swingHand(Hand.MAIN_HAND);
-        breakClock = fastDelay(breakDelay);
+        lastBreakTime = System.currentTimeMillis();
 
         if (antiWeakness.isValue()) {
             mc.player.getInventory().setSelectedSlot(previousSlot);
@@ -210,7 +207,7 @@ public class AutoCrystal extends ModuleStructure {
         simulateClick(GLFW.GLFW_MOUSE_BUTTON_LEFT);
         attackEntity(crystal);
         mc.player.swingHand(Hand.MAIN_HAND);
-        breakClock = fastDelay(breakDelay);
+        lastBreakTime = System.currentTimeMillis();
 
         if (antiWeakness.isValue()) {
             mc.player.getInventory().setSelectedSlot(previousSlot);
@@ -315,7 +312,7 @@ public class AutoCrystal extends ModuleStructure {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
-    private int fastDelay(SliderSettings setting) {
-        return Math.max(0, Math.round(setting.getValue() * 0.5F));
+    private boolean delayPassed(long lastActionTime, SliderSettings setting) {
+        return lastActionTime == 0 || System.currentTimeMillis() - lastActionTime >= setting.getValue();
     }
 }

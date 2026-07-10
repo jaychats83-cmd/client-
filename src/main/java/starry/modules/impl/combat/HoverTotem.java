@@ -16,12 +16,12 @@ import starry.modules.module.setting.implement.SliderSettings;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class HoverTotem extends ModuleStructure {
-    SliderSettings delay = new SliderSettings("Delay", "").setValue(0f).range(0f, 20f);
+    SliderSettings delay = new SliderSettings("Delay MS", "").setValue(0f).range(0f, 1000f);
     BooleanSetting hotbar = new BooleanSetting("Hotbar", "Puts a totem in your hotbar as well").setValue(true);
     SliderSettings slot = new SliderSettings("Totem Slot", "Your preferred totem slot").setValue(1f).range(1f, 9f);
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "Switches to totem slot when going inside the inventory").setValue(false);
 
-    int clock;
+    long lastActionTime;
 
     public HoverTotem() {
         super("Hover Totem", ModuleCategory.CPVP);
@@ -30,7 +30,7 @@ public class HoverTotem extends ModuleStructure {
 
     @Override
     public void activate() {
-        clock = 0;
+        lastActionTime = System.currentTimeMillis();
     }
 
     @EventHandler
@@ -46,34 +46,27 @@ public class HoverTotem extends ModuleStructure {
             }
 
             if (hoveredSlot == null || !hoveredSlot.getStack().isOf(Items.TOTEM_OF_UNDYING)) {
-                clock = 0;
+                lastActionTime = System.currentTimeMillis();
                 return;
             }
 
             if (hoveredSlot.getIndex() > 35) return;
 
-            if (clock > 0) {
-                clock--;
-                return;
-            }
+            if (System.currentTimeMillis() - lastActionTime < delay.getValue()) return;
 
             int hoveredScreenSlot = hoveredSlot.id;
             if (!mc.player.getOffHandStack().isOf(Items.TOTEM_OF_UNDYING)) {
                 mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, hoveredScreenSlot, 40, SlotActionType.SWAP, mc.player);
-                clock = fastDelay();
+                lastActionTime = System.currentTimeMillis();
                 return;
             }
 
             if (hotbar.isValue() && !mc.player.getInventory().getStack(preferredHotbarSlot).isOf(Items.TOTEM_OF_UNDYING)) {
                 mc.interactionManager.clickSlot(inv.getScreenHandler().syncId, hoveredScreenSlot, preferredHotbarSlot, SlotActionType.SWAP, mc.player);
-                clock = fastDelay();
+                lastActionTime = System.currentTimeMillis();
             }
         } else {
-            clock = fastDelay();
+            lastActionTime = System.currentTimeMillis();
         }
-    }
-
-    private int fastDelay() {
-        return Math.max(0, Math.round(delay.getValue() * 0.5F));
     }
 }

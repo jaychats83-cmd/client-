@@ -25,39 +25,33 @@ import starry.modules.module.setting.implement.SliderSettings;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
-
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AnchorMacro extends ModuleStructure {
     BooleanSetting whileUse = new BooleanSetting("While Use", "If it should trigger while eating/using shield").setValue(true);
     BooleanSetting stopOnKill = new BooleanSetting("Stop on Kill", "Doesn't anchor if body nearby").setValue(false);
     BooleanSetting clickSimulation = new BooleanSetting("Click Simulation", "Makes the CPS hud think you're legit").setValue(false);
-    SliderSettings switchDelay = new SliderSettings("Switch Delay", "").setValue(0f).range(0, 20);
-    SliderSettings switchChance = new SliderSettings("Switch Chance", "").setValue(100f).range(0f, 100f);
-    SliderSettings placeChance = new SliderSettings("Place Chance", "Randomization").setValue(100f).range(0f, 100f);
-    SliderSettings glowstoneDelay = new SliderSettings("Glowstone Delay", "").setValue(0f).range(0, 20);
-    SliderSettings glowstoneChance = new SliderSettings("Glowstone Chance", "").setValue(100f).range(0f, 100f);
-    SliderSettings explodeDelay = new SliderSettings("Explode Delay", "").setValue(0f).range(0, 20);
-    SliderSettings explodeChance = new SliderSettings("Explode Chance", "").setValue(100f).range(0f, 100f);
+    SliderSettings switchDelay = new SliderSettings("Switch Delay MS", "").setValue(0f).range(0f, 1000f);
+    SliderSettings glowstoneDelay = new SliderSettings("Glowstone Delay MS", "").setValue(0f).range(0f, 1000f);
+    SliderSettings explodeDelay = new SliderSettings("Explode Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings explodeSlot = new SliderSettings("Explode Slot", "").setValue(1f).range(1, 9);
     BooleanSetting onlyOwn = new BooleanSetting("Only Own", "").setValue(false);
     BooleanSetting onlyCharge = new BooleanSetting("Only Charge", "").setValue(false);
 
-    int switchClock;
-    int glowstoneClock;
-    int explodeClock;
+    long lastSwitchTime;
+    long lastGlowstoneTime;
+    long lastExplodeTime;
     final Set<BlockPos> ownedAnchors = new HashSet<>();
 
     public AnchorMacro() {
         super("Anchor Macro", ModuleCategory.CPVP);
-        settings(whileUse, stopOnKill, clickSimulation, placeChance, switchDelay, switchChance, glowstoneDelay, glowstoneChance, explodeDelay, explodeChance, explodeSlot, onlyOwn, onlyCharge);
+        settings(whileUse, stopOnKill, clickSimulation, switchDelay, glowstoneDelay, explodeDelay, explodeSlot, onlyOwn, onlyCharge);
     }
 
     @Override
     public void activate() {
-        switchClock = 0;
-        glowstoneClock = 0;
-        explodeClock = 0;
+        lastSwitchTime = 0;
+        lastGlowstoneTime = 0;
+        lastExplodeTime = 0;
     }
 
     @EventHandler
@@ -70,8 +64,6 @@ public class AnchorMacro extends ModuleStructure {
 
         if (stopOnKill.isValue() && isDeadBodyNearby())
             return;
-
-        int randomInt = randomInt(1, 100);
 
         if (!isRightMouseDown())
             return;
@@ -89,36 +81,22 @@ public class AnchorMacro extends ModuleStructure {
         mc.options.useKey.setPressed(false);
 
         if (isAnchorNotCharged(pos)) {
-            randomInt = randomInt(1, 100);
-
-            if (randomInt <= intValue(placeChance)) {
-                if (!mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
-                    if (switchClock != delayValue(switchDelay)) {
-                        switchClock++;
-                        return;
-                    }
-
-                    randomInt = randomInt(1, 100);
-
-                    if (randomInt <= intValue(switchChance)) {
-                        switchClock = 0;
-                        selectItemFromHotbar(Items.GLOWSTONE);
-                    }
+            if (!mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
+                if (!delayPassed(lastSwitchTime, switchDelay)) {
+                    return;
                 }
 
-                if (mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
-                    if (glowstoneClock != delayValue(glowstoneDelay)) {
-                        glowstoneClock++;
-                        return;
-                    }
+                lastSwitchTime = System.currentTimeMillis();
+                selectItemFromHotbar(Items.GLOWSTONE);
+            }
 
-                    randomInt = randomInt(1, 100);
-
-                    if (randomInt <= intValue(glowstoneChance)) {
-                        glowstoneClock = 0;
-                        placeBlock(hit);
-                    }
+            if (mc.player.getMainHandStack().isOf(Items.GLOWSTONE)) {
+                if (!delayPassed(lastGlowstoneTime, glowstoneDelay)) {
+                    return;
                 }
+
+                lastGlowstoneTime = System.currentTimeMillis();
+                placeBlock(hit);
             }
         }
 
@@ -126,32 +104,24 @@ public class AnchorMacro extends ModuleStructure {
             int slot = intValue(explodeSlot) - 1;
 
             if (mc.player.getInventory().getSelectedSlot() != slot) {
-                if (switchClock != delayValue(switchDelay)) {
-                    switchClock++;
+                if (!delayPassed(lastSwitchTime, switchDelay)) {
                     return;
                 }
 
-                if (randomInt <= intValue(switchChance)) {
-                    switchClock = 0;
-                    mc.player.getInventory().setSelectedSlot(slot);
-                }
+                lastSwitchTime = System.currentTimeMillis();
+                mc.player.getInventory().setSelectedSlot(slot);
             }
 
             if (mc.player.getInventory().getSelectedSlot() == slot) {
-                if (explodeClock != delayValue(explodeDelay)) {
-                    explodeClock++;
+                if (!delayPassed(lastExplodeTime, explodeDelay)) {
                     return;
                 }
 
-                randomInt = randomInt(1, 100);
+                lastExplodeTime = System.currentTimeMillis();
 
-                if (randomInt <= intValue(explodeChance)) {
-                    explodeClock = 0;
-
-                    if (!onlyCharge.isValue()) {
-                        placeBlock(hit);
-                        ownedAnchors.remove(pos);
-                    }
+                if (!onlyCharge.isValue()) {
+                    placeBlock(hit);
+                    ownedAnchors.remove(pos);
                 }
             }
         }
@@ -233,15 +203,11 @@ public class AnchorMacro extends ModuleStructure {
         return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
     }
 
-    private int randomInt(int min, int max) {
-        return ThreadLocalRandom.current().nextInt(min, max + 1);
-    }
-
     private int intValue(SliderSettings setting) {
         return Math.round(setting.getValue());
     }
 
-    private int delayValue(SliderSettings setting) {
-        return Math.max(0, Math.round(setting.getValue() * 0.5F));
+    private boolean delayPassed(long lastActionTime, SliderSettings setting) {
+        return lastActionTime == 0 || System.currentTimeMillis() - lastActionTime >= setting.getValue();
     }
 }

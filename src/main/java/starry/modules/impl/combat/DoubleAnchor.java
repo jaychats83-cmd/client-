@@ -21,17 +21,17 @@ import java.util.concurrent.ThreadLocalRandom;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DoubleAnchor extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Activate Key", "Key that starts double anchoring").setKey(GLFW.GLFW_KEY_G);
-    SliderSettings switchDelay = new SliderSettings("Switch Delay", "").setValue(0f).range(0f, 20f);
+    SliderSettings switchDelay = new SliderSettings("Switch Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings totemSlot = new SliderSettings("Totem Slot", "").setValue(1f).range(1f, 9f);
-    SliderSettings randomDelayMin = new SliderSettings("Random Delay Min", "").setValue(0f).range(0f, 50f);
-    SliderSettings randomDelayMax = new SliderSettings("Random Delay Max", "").setValue(0f).range(0f, 100f);
+    SliderSettings randomDelayMin = new SliderSettings("Random Delay Min MS", "").setValue(0f).range(0f, 2500f);
+    SliderSettings randomDelayMax = new SliderSettings("Random Delay Max MS", "").setValue(0f).range(0f, 5000f);
     BooleanSetting randomInteractions = new BooleanSetting("Random Interactions", "").setValue(false);
     SliderSettings randomHitsMin = new SliderSettings("Random Hits Min", "").setValue(1f).range(1f, 4f);
     SliderSettings randomHitsMax = new SliderSettings("Random Hits Max", "").setValue(4f).range(1f, 4f);
 
-    int delayCounter;
     int randomDelay;
     int step;
+    long lastStepTime;
     boolean anchoring;
 
     public DoubleAnchor() {
@@ -67,9 +67,8 @@ public class DoubleAnchor extends ModuleStructure {
             return;
         }
 
-        int delay = fastDelay(switchDelay) + currentRandomDelay();
-        if (delayCounter < delay) {
-            delayCounter++;
+        int delay = Math.round(switchDelay.getValue()) + currentRandomDelay();
+        if (!delayPassed(delay)) {
             return;
         }
         randomDelay = 0;
@@ -99,7 +98,7 @@ public class DoubleAnchor extends ModuleStructure {
         }
 
         step++;
-        delayCounter = 0;
+        lastStepTime = System.currentTimeMillis();
     }
 
     private boolean hasRequiredItems() {
@@ -132,8 +131,8 @@ public class DoubleAnchor extends ModuleStructure {
     }
 
     private void resetDelay() {
-        delayCounter = 0;
         randomDelay = 0;
+        lastStepTime = System.currentTimeMillis();
     }
 
     public boolean isAnchoringActive() {
@@ -142,7 +141,7 @@ public class DoubleAnchor extends ModuleStructure {
 
     private int currentRandomDelay() {
         if (randomDelay == 0 && randomDelayMax.getValue() > randomDelayMin.getValue()) {
-            randomDelay = Math.max(0, Math.round(randomInt(randomDelayMin.getInt(), randomDelayMax.getInt()) * 0.5F));
+            randomDelay = Math.max(0, randomInt(randomDelayMin.getInt(), randomDelayMax.getInt()));
         }
         return randomDelay;
     }
@@ -183,7 +182,7 @@ public class DoubleAnchor extends ModuleStructure {
         return GLFW.glfwGetKey(mc.getWindow().getHandle(), keyCode) == GLFW.GLFW_PRESS;
     }
 
-    private int fastDelay(SliderSettings setting) {
-        return Math.max(0, Math.round(setting.getValue() * 0.5F));
+    private boolean delayPassed(int delay) {
+        return System.currentTimeMillis() - lastStepTime >= delay;
     }
 }
