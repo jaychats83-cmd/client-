@@ -7,26 +7,39 @@ import starry.events.impl.TickEvent;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.SliderSettings;
+
 import java.util.concurrent.ThreadLocalRandom;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AutoJumpReset extends ModuleStructure {
     SliderSettings chance = new SliderSettings("Chance", "").setValue(100f).range(0f, 100f);
+    int lastHurtTime;
+    boolean handledHit;
 
     public AutoJumpReset() {
         super("Auto Jump Reset", ModuleCategory.COMBAT);
         settings(chance);
     }
 
+    @Override
+    public void activate() {
+        lastHurtTime = 0;
+        handledHit = false;
+    }
+
     @EventHandler
     public void onTick(TickEvent event) {
-        if (ThreadLocalRandom.current().nextInt(1, 101) > chance.getValue()) return;
         if (mc.currentScreen != null) return;
+        if (mc.player == null || mc.world == null) return;
         if (mc.player.isUsingItem()) return;
-        if (mc.player.hurtTime == 0) return;
-        if (mc.player.hurtTime == mc.player.maxHurtTime) return;
         if (!mc.player.isOnGround()) return;
-        if (mc.player.hurtTime == 9)
-            mc.player.jump();
+        int ht = mc.player.hurtTime;
+        if (ht == 0) { handledHit = false; lastHurtTime = 0; return; }
+        if (ht > lastHurtTime) handledHit = false;
+        lastHurtTime = ht;
+        if (handledHit || ht != 9) return;
+        handledHit = true;
+        if (ThreadLocalRandom.current().nextInt(1, 101) > chance.getValue()) return;
+        mc.player.jump();
     }
 }

@@ -7,11 +7,13 @@ import starry.events.impl.TickEvent;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
+import starry.modules.module.setting.implement.MinMaxSetting;
 import starry.modules.module.setting.implement.SelectSetting;
 import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
 
@@ -22,8 +24,7 @@ public class StunSlam extends ModuleStructure {
     SelectSetting targetMode = new SelectSetting("Target", "").value("Nearest", "Crosshair").selected("Nearest");
     SelectSetting aimMode = new SelectSetting("Aim", "").value("Eyes", "Center", "Feet").selected("Center");
     SliderSettings range = new SliderSettings("Range", "").setValue(4f).range(1f, 8f);
-    SliderSettings minFall = new SliderSettings("Min Fall", "").setValue(0.2f).range(0f, 5f);
-    SliderSettings maxFall = new SliderSettings("Max Fall", "").setValue(10f).range(0f, 32f);
+    MinMaxSetting fallDistance = new MinMaxSetting("Fall Distance", "Fall distance range").defaultValue(0.2f, 10f).range(0f, 32f);
     SliderSettings delayMs = new SliderSettings("Delay MS", "").setValue(300f).range(0f, 1500f);
     SliderSettings cooldown = new SliderSettings("Cooldown", "Attack cooldown percent required").setValue(90f).range(0f, 100f);
     BooleanSetting requireFall = new BooleanSetting("Require Fall", "").setValue(false);
@@ -31,6 +32,7 @@ public class StunSlam extends ModuleStructure {
     BooleanSetting jumpFirst = new BooleanSetting("Jump First", "").setValue(true);
     BooleanSetting seeOnly = new BooleanSetting("See Only", "").setValue(true);
     BooleanSetting rotate = new BooleanSetting("Rotate", "").setValue(true);
+    BooleanSetting silentAim = new BooleanSetting("Silent Aim", "Aim server-side without moving your camera").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
     BooleanSetting switchBack = new BooleanSetting("Switch Back", "").setValue(true);
 
@@ -39,8 +41,8 @@ public class StunSlam extends ModuleStructure {
 
     public StunSlam() {
         super("Stun Slam", ModuleCategory.COMBAT);
-        settings(targetMode, aimMode, range, minFall, maxFall, delayMs, cooldown, requireFall,
-                autoSwitch, jumpFirst, seeOnly, rotate, swing, switchBack);
+        settings(targetMode, aimMode, range, fallDistance, delayMs, cooldown, requireFall,
+                autoSwitch, jumpFirst, seeOnly, rotate, silentAim, swing, switchBack);
     }
 
     @Override
@@ -63,8 +65,8 @@ public class StunSlam extends ModuleStructure {
             return;
         }
 
-        if (requireFall.isValue() && (mc.player.isOnGround() || mc.player.fallDistance < minFall.getValue())) return;
-        if (maxFall.getValue() > 0 && mc.player.fallDistance > maxFall.getValue()) return;
+        if (requireFall.isValue() && (mc.player.isOnGround() || mc.player.fallDistance < fallDistance.getMinValue())) return;
+        if (fallDistance.getMaxValue() > 0 && mc.player.fallDistance > fallDistance.getMaxValue()) return;
         if (rotate.isValue()) rotateTo(target);
 
         if (mc.player.getAttackCooldownProgress(0.5F) >= cooldown.getValue() / 100f) {
@@ -100,8 +102,15 @@ public class StunSlam extends ModuleStructure {
         double diffZ = aim.z - mc.player.getZ();
         double diffY = aim.y - mc.player.getEyeY();
         double dist = Math.sqrt(diffX * diffX + diffZ * diffZ);
-        mc.player.setYaw((float) Math.toDegrees(Math.atan2(-diffX, diffZ)));
-        mc.player.setPitch((float) Math.toDegrees(-Math.atan2(diffY, dist)));
+        float yaw = (float) Math.toDegrees(Math.atan2(-diffX, diffZ));
+        float pitch = (float) Math.toDegrees(-Math.atan2(diffY, dist));
+        if (silentAim.isValue() && mc.getNetworkHandler() != null) {
+            mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(yaw, pitch,
+                    mc.player.isOnGround(), mc.player.horizontalCollision));
+        } else {
+            mc.player.setYaw(yaw);
+            mc.player.setPitch(pitch);
+        }
     }
 
     private boolean selectItem(net.minecraft.item.Item item) {

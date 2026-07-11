@@ -7,6 +7,7 @@ import starry.events.impl.TickEvent;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
+import starry.modules.module.setting.implement.MinMaxSetting;
 import starry.modules.module.setting.implement.SelectSetting;
 import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.entity.Entity;
@@ -15,6 +16,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.Vec3d;
@@ -24,8 +26,7 @@ public class AutoMace extends ModuleStructure {
     SelectSetting targetMode = new SelectSetting("Targets", "What Auto Mace can target").value("Players", "Living").selected("Players");
     SelectSetting aimMode = new SelectSetting("Aim", "Where rotations aim").value("Eyes", "Center", "Feet").selected("Center");
     SliderSettings range = new SliderSettings("Range", "").setValue(3.75f).range(1f, 8f);
-    SliderSettings minFall = new SliderSettings("Min Fall", "").setValue(1.25f).range(0f, 8f);
-    SliderSettings maxFall = new SliderSettings("Max Fall", "").setValue(12f).range(0f, 32f);
+    MinMaxSetting fallDistance = new MinMaxSetting("Fall Distance", "Fall distance range").defaultValue(1.25f, 12f).range(0f, 32f);
     SliderSettings delayMs = new SliderSettings("Delay MS", "").setValue(150f).range(0f, 1500f);
     SliderSettings cooldown = new SliderSettings("Cooldown", "Attack cooldown percent required").setValue(90f).range(0f, 100f);
     SliderSettings switchBackDelay = new SliderSettings("Switch Back Delay MS", "").setValue(0f).range(0f, 1000f);
@@ -36,6 +37,7 @@ public class AutoMace extends ModuleStructure {
     BooleanSetting crosshairFirst = new BooleanSetting("Crosshair First", "").setValue(true);
     BooleanSetting seeOnly = new BooleanSetting("See Only", "").setValue(true);
     BooleanSetting rotate = new BooleanSetting("Rotate", "").setValue(true);
+    BooleanSetting silentAim = new BooleanSetting("Silent Aim", "Aim server-side without moving your camera").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
     BooleanSetting switchBack = new BooleanSetting("Switch Back", "").setValue(true);
 
@@ -45,8 +47,8 @@ public class AutoMace extends ModuleStructure {
 
     public AutoMace() {
         super("Auto Mace", ModuleCategory.COMBAT);
-        settings(targetMode, aimMode, range, minFall, maxFall, delayMs, cooldown, switchBackDelay,
-                requireFall, requireMace, autoSwitch, axeShield, crosshairFirst, seeOnly, rotate, swing, switchBack);
+        settings(targetMode, aimMode, range, fallDistance, delayMs, cooldown, switchBackDelay,
+                requireFall, requireMace, autoSwitch, axeShield, crosshairFirst, seeOnly, rotate, silentAim, swing, switchBack);
     }
 
     @Override
@@ -59,8 +61,8 @@ public class AutoMace extends ModuleStructure {
         if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) return;
         if (restoreAt > 0 && System.currentTimeMillis() >= restoreAt) restoreSlot();
         if (System.currentTimeMillis() - lastActionTime < delayMs.getValue()) return;
-        if (requireFall.isValue() && (mc.player.isOnGround() || mc.player.fallDistance < minFall.getValue())) return;
-        if (maxFall.getValue() > 0 && mc.player.fallDistance > maxFall.getValue()) return;
+        if (requireFall.isValue() && (mc.player.isOnGround() || mc.player.fallDistance < fallDistance.getMinValue())) return;
+        if (fallDistance.getMaxValue() > 0 && mc.player.fallDistance > fallDistance.getMaxValue()) return;
 
         Entity target = findTarget();
         if (!(target instanceof LivingEntity living) || !living.isAlive() || mc.player.distanceTo(target) > range.getValue()) return;
@@ -139,8 +141,15 @@ public class AutoMace extends ModuleStructure {
         double diffZ = targetPos.z - mc.player.getZ();
         double diffY = targetPos.y - (mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()));
         double dist = Math.sqrt(diffX * diffX + diffZ * diffZ);
-        mc.player.setYaw((float) Math.toDegrees(Math.atan2(-diffX, diffZ)));
-        mc.player.setPitch((float) Math.toDegrees(-Math.atan2(diffY, dist)));
+        float yaw = (float) Math.toDegrees(Math.atan2(-diffX, diffZ));
+        float pitch = (float) Math.toDegrees(-Math.atan2(diffY, dist));
+        if (silentAim.isValue() && mc.getNetworkHandler() != null) {
+            mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(yaw, pitch,
+                    mc.player.isOnGround(), mc.player.horizontalCollision));
+        } else {
+            mc.player.setYaw(yaw);
+            mc.player.setPitch(pitch);
+        }
     }
 
     private void restoreSlot() {

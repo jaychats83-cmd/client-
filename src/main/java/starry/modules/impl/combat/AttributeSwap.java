@@ -13,6 +13,7 @@ import net.minecraft.item.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AttributeSwap extends ModuleStructure {
@@ -59,7 +60,7 @@ public class AttributeSwap extends ModuleStructure {
 
         if (pendingSlot != -1) {
             if (pendingDelay > 0) { pendingDelay--; return; }
-            mc.player.getInventory().setSelectedSlot(pendingSlot);
+            selectSlot(pendingSlot);
             pendingSlot = -1;
             ticksLeft = swapTicks.getInt();
             return;
@@ -85,7 +86,7 @@ public class AttributeSwap extends ModuleStructure {
 
     private void restore() {
         if (mc.player != null && originalSlot >= 0 && originalSlot < 9)
-            mc.player.getInventory().setSelectedSlot(originalSlot);
+            selectSlot(originalSlot);
     }
 
     private boolean isSword(ItemStack stack) {
@@ -98,6 +99,12 @@ public class AttributeSwap extends ModuleStructure {
 
     private boolean isSwordOrAxe(ItemStack stack) {
         return isSword(stack) || isAxe(stack);
+    }
+
+    private void selectSlot(int slot) {
+        mc.player.getInventory().setSelectedSlot(slot);
+        if (mc.getNetworkHandler() != null)
+            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
     }
 
     private void reset() {
