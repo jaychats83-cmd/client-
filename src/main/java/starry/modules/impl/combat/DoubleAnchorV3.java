@@ -3,12 +3,14 @@ package starry.modules.impl.combat;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.RespawnAnchorBlock;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.client.input.MouseInput;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
 import starry.events.api.EventHandler;
 import starry.events.impl.TickEvent;
@@ -37,6 +39,7 @@ public class DoubleAnchorV3 extends ModuleStructure {
     int step;
     int originalSlot = -1;
     boolean anchoring;
+    BlockPos anchorPos;
 
     public DoubleAnchorV3() {
         super("Double Anchor V3", "Legit input macro using real targeted block faces; no AirPlace or direct packet sending", ModuleCategory.CPVP);
@@ -60,6 +63,9 @@ public class DoubleAnchorV3 extends ModuleStructure {
 
         if (!anchoring) {
             if (!activationPressed() || !hasItems()) return;
+            BlockHitResult startHit = targetedBlock();
+            if (startHit == null) return;
+            anchorPos = resolveAnchorPos(startHit);
             anchoring = true;
             originalSlot = mc.player.getInventory().getSelectedSlot();
         } else if (holdToRun.isValue() && !activationPressed()) {
@@ -68,13 +74,10 @@ public class DoubleAnchorV3 extends ModuleStructure {
         }
 
         BlockHitResult hit = targetedBlock();
-        if (hit == null) {
-            resetAll(true);
-            return;
-        }
+        if (requiresTarget(step) && hit == null) return;
 
         // If the player is already looking at an anchor, begin with its charge step.
-        if (step == 0 && mc.world.getBlockState(hit.getBlockPos()).isOf(Blocks.RESPAWN_ANCHOR)) {
+        if (step == 0 && hit != null && mc.world.getBlockState(hit.getBlockPos()).isOf(Blocks.RESPAWN_ANCHOR)) {
             step = 2;
             resetDelay();
             return;
@@ -85,17 +88,17 @@ public class DoubleAnchorV3 extends ModuleStructure {
         boolean advance = switch (step) {
             case 0 -> select(Items.RESPAWN_ANCHOR);
             case 1 -> clickUse(1);
-            case 2 -> select(Items.GLOWSTONE);
+            case 2 -> isAnchorPresent() && select(Items.GLOWSTONE);
             case 3 -> clickUse(chargeClicks());
-            case 4 -> selectDetonationSlot();
+            case 4 -> isAnchorCharged() && selectDetonationSlot();
             case 5 -> clickUse(1);
-            case 6 -> select(Items.RESPAWN_ANCHOR);
+            case 6 -> !isAnchorPresent() && select(Items.RESPAWN_ANCHOR);
             case 7 -> clickUse(1);
-            case 8 -> select(Items.GLOWSTONE);
+            case 8 -> isAnchorPresent() && select(Items.GLOWSTONE);
             case 9 -> clickUse(chargeClicks());
-            case 10 -> selectDetonationSlot();
+            case 10 -> isAnchorCharged() && selectDetonationSlot();
             case 11 -> clickUse(1);
-            case 12 -> selectSlot(restoreSlot.isValue() ? originalSlot : finishSlot.getInt() - 1);
+            case 12 -> !isAnchorPresent() && selectSlot(restoreSlot.isValue() ? originalSlot : finishSlot.getInt() - 1);
             case 13 -> {
                 resetAll(false);
                 yield false;
@@ -112,6 +115,26 @@ public class DoubleAnchorV3 extends ModuleStructure {
     private BlockHitResult targetedBlock() {
         if (!(mc.crosshairTarget instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return null;
         return hit;
+    }
+
+    private BlockPos resolveAnchorPos(BlockHitResult hit) {
+        BlockPos hitPos = hit.getBlockPos();
+        if (mc.world.getBlockState(hitPos).isOf(Blocks.RESPAWN_ANCHOR)
+                || mc.world.getBlockState(hitPos).isReplaceable()) return hitPos.toImmutable();
+        return hitPos.offset(hit.getSide()).toImmutable();
+    }
+
+    private boolean requiresTarget(int currentStep) {
+        return currentStep == 1 || currentStep == 3 || currentStep == 5
+                || currentStep == 7 || currentStep == 9 || currentStep == 11;
+    }
+
+    private boolean isAnchorPresent() {
+        return anchorPos != null && mc.world.getBlockState(anchorPos).isOf(Blocks.RESPAWN_ANCHOR);
+    }
+
+    private boolean isAnchorCharged() {
+        return isAnchorPresent() && mc.world.getBlockState(anchorPos).get(RespawnAnchorBlock.CHARGES) > 0;
     }
 
     private boolean hasItems() {
@@ -194,6 +217,7 @@ public class DoubleAnchorV3 extends ModuleStructure {
         step = 0;
         anchoring = false;
         originalSlot = -1;
+        anchorPos = null;
         resetDelay();
     }
 }
