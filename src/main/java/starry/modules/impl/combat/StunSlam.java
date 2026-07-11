@@ -27,7 +27,7 @@ public class StunSlam extends ModuleStructure {
     MinMaxSetting fallDistance = new MinMaxSetting("Fall Distance", "Fall distance range").defaultValue(0.2f, 10f).range(0f, 32f);
     SliderSettings delayMs = new SliderSettings("Delay MS", "").setValue(300f).range(0f, 1500f);
     SliderSettings cooldown = new SliderSettings("Cooldown", "Attack cooldown percent required").setValue(90f).range(0f, 100f);
-    BooleanSetting requireFall = new BooleanSetting("Require Fall", "").setValue(false);
+    BooleanSetting requireFall = new BooleanSetting("Require Fall", "Only strike during a real descending fall").setValue(true);
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "").setValue(true);
     BooleanSetting jumpFirst = new BooleanSetting("Jump First", "").setValue(true);
     BooleanSetting seeOnly = new BooleanSetting("See Only", "").setValue(true);
@@ -38,6 +38,8 @@ public class StunSlam extends ModuleStructure {
 
     private long lastActionTime;
     private int previousSlot = -1;
+    private boolean jumpCycle;
+    private boolean attackedThisCycle;
 
     public StunSlam() {
         super("Stun Slam", ModuleCategory.COMBAT);
@@ -46,33 +48,43 @@ public class StunSlam extends ModuleStructure {
     }
 
     @Override
-    public void activate() { lastActionTime = 0; previousSlot = -1; }
+    public void activate() { lastActionTime = 0; previousSlot = -1; jumpCycle = false; attackedThisCycle = false; }
     @Override
     public void deactivate() { restoreSlot(); }
 
     @EventHandler
     public void onTick(TickEvent event) {
         if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) return;
-        if (System.currentTimeMillis() - lastActionTime < delayMs.getValue()) return;
+        if (mc.player.isOnGround() && jumpCycle) {
+            jumpCycle = false;
+            attackedThisCycle = false;
+            if (switchBack.isValue()) restoreSlot();
+            lastActionTime = System.currentTimeMillis();
+        }
+        if (!jumpCycle && System.currentTimeMillis() - lastActionTime < delayMs.getValue()) return;
 
         PlayerEntity target = findTarget((float) range.getValue());
         if (target == null || !target.isAlive()) return;
         if (!selectItem(Items.MACE)) return;
 
-        if (jumpFirst.isValue() && mc.player.isOnGround()) {
+        if (jumpFirst.isValue() && mc.player.isOnGround() && !jumpCycle) {
             mc.player.jump();
-            lastActionTime = System.currentTimeMillis();
+            jumpCycle = true;
+            attackedThisCycle = false;
             return;
         }
 
-        if (requireFall.isValue() && (mc.player.isOnGround() || mc.player.fallDistance < fallDistance.getMinValue())) return;
+        if (attackedThisCycle) return;
+        boolean descending = !mc.player.isOnGround() && mc.player.getVelocity().y < -0.01;
+        if (requireFall.isValue() && (!descending || mc.player.fallDistance < fallDistance.getMinValue())) return;
         if (fallDistance.getMaxValue() > 0 && mc.player.fallDistance > fallDistance.getMaxValue()) return;
         if (rotate.isValue()) rotateTo(target);
 
         if (mc.player.getAttackCooldownProgress(0.5F) >= cooldown.getValue() / 100f) {
             mc.interactionManager.attackEntity(mc.player, target);
             if (swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
-            if (switchBack.isValue()) restoreSlot();
+            attackedThisCycle = true;
+            if (!jumpCycle && switchBack.isValue()) restoreSlot();
             lastActionTime = System.currentTimeMillis();
         }
     }

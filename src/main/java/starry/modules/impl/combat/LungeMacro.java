@@ -10,6 +10,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.client.input.MouseInput;
 import org.lwjgl.glfw.GLFW;
 import starry.events.api.EventHandler;
 import starry.events.impl.TickEvent;
@@ -19,12 +20,13 @@ import starry.modules.module.setting.implement.BindSetting;
 import starry.modules.module.setting.implement.BooleanSetting;
 import starry.modules.module.setting.implement.MinMaxSetting;
 import starry.modules.module.setting.implement.SliderSettings;
+import starry.mixin.MouseAccessor;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class LungeMacro extends ModuleStructure {
-    BindSetting activateKey = new BindSetting("Macro Key", "Runs the spear-lunge movement macro").setKey(GLFW.GLFW_MOUSE_BUTTON_5);
+    BindSetting activateKey = new BindSetting("Macro Key", "Runs the spear-lunge movement macro").setKey(GLFW.GLFW_MOUSE_BUTTON_5).setType(0);
     BooleanSetting swapBack = new BooleanSetting("Swap Back", "Switch back to previous slot after lunging").setValue(true);
     SliderSettings switchDelay = new SliderSettings("Switch Delay", "Ticks to wait before switching back").setValue(4f).range(0, 20);
     BooleanSetting randomization = new BooleanSetting("Randomization", "Add random delay").setValue(false);
@@ -67,7 +69,7 @@ public class LungeMacro extends ModuleStructure {
                 if (slot != -1) {
                     prevSlot = mc.player.getInventory().getSelectedSlot();
                     selectSlot(slot);
-                    mc.options.attackKey.setPressed(true);
+                    simulateAttackClick();
 
                     int delay = switchDelay.getInt();
                     if (randomization.isValue()) {
@@ -83,7 +85,6 @@ public class LungeMacro extends ModuleStructure {
                 return;
             }
 
-            mc.options.attackKey.setPressed(false);
             if (swapBack.isValue()) selectSlot(prevSlot);
             else selectSlot(returnSlot.getInt() - 1);
 
@@ -101,10 +102,17 @@ public class LungeMacro extends ModuleStructure {
     private boolean isActivationPressed() {
         int key = activateKey.getKey();
         if (key == GLFW.GLFW_KEY_UNKNOWN) return true;
-        if (key <= GLFW.GLFW_MOUSE_BUTTON_LAST) {
+        if (activateKey.getType() == 0) {
             return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), key) == GLFW.GLFW_PRESS;
         }
         return GLFW.glfwGetKey(mc.getWindow().getHandle(), key) == GLFW.GLFW_PRESS;
+    }
+
+    private void simulateAttackClick() {
+        MouseInput input = new MouseInput(GLFW.GLFW_MOUSE_BUTTON_LEFT, 0);
+        MouseAccessor mouse = (MouseAccessor) mc.mouse;
+        mouse.qcloud$onMouseButton(mc.getWindow().getHandle(), input, GLFW.GLFW_PRESS);
+        mouse.qcloud$onMouseButton(mc.getWindow().getHandle(), input, GLFW.GLFW_RELEASE);
     }
 
     private int findLungeSpear() {

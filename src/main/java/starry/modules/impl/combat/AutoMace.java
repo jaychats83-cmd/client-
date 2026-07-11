@@ -30,7 +30,7 @@ public class AutoMace extends ModuleStructure {
     SliderSettings delayMs = new SliderSettings("Delay MS", "").setValue(150f).range(0f, 1500f);
     SliderSettings cooldown = new SliderSettings("Cooldown", "Attack cooldown percent required").setValue(90f).range(0f, 100f);
     SliderSettings switchBackDelay = new SliderSettings("Switch Back Delay MS", "").setValue(0f).range(0f, 1000f);
-    BooleanSetting requireFall = new BooleanSetting("Require Fall", "").setValue(false);
+    BooleanSetting requireFall = new BooleanSetting("Require Fall", "Only attack during a real descending fall").setValue(true);
     BooleanSetting requireMace = new BooleanSetting("Require Mace", "").setValue(true);
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "").setValue(true);
     BooleanSetting axeShield = new BooleanSetting("Axe Shield", "").setValue(true);
@@ -44,6 +44,7 @@ public class AutoMace extends ModuleStructure {
     private int previousSlot = -1;
     private long lastActionTime;
     private long restoreAt;
+    private boolean attackedThisFall;
 
     public AutoMace() {
         super("Auto Mace", ModuleCategory.COMBAT);
@@ -52,7 +53,7 @@ public class AutoMace extends ModuleStructure {
     }
 
     @Override
-    public void activate() { lastActionTime = 0; restoreAt = 0; }
+    public void activate() { lastActionTime = 0; restoreAt = 0; attackedThisFall = false; }
     @Override
     public void deactivate() { restoreSlot(); }
 
@@ -60,8 +61,11 @@ public class AutoMace extends ModuleStructure {
     public void onTick(TickEvent event) {
         if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) return;
         if (restoreAt > 0 && System.currentTimeMillis() >= restoreAt) restoreSlot();
+        if (mc.player.isOnGround()) attackedThisFall = false;
+        if (attackedThisFall) return;
         if (System.currentTimeMillis() - lastActionTime < delayMs.getValue()) return;
-        if (requireFall.isValue() && (mc.player.isOnGround() || mc.player.fallDistance < fallDistance.getMinValue())) return;
+        boolean descending = !mc.player.isOnGround() && mc.player.getVelocity().y < -0.01;
+        if (requireFall.isValue() && (!descending || mc.player.fallDistance < fallDistance.getMinValue())) return;
         if (fallDistance.getMaxValue() > 0 && mc.player.fallDistance > fallDistance.getMaxValue()) return;
 
         Entity target = findTarget();
@@ -98,6 +102,7 @@ public class AutoMace extends ModuleStructure {
         if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
         if (switchBack.isValue()) scheduleRestore();
         lastActionTime = System.currentTimeMillis();
+        attackedThisFall = true;
     }
 
     private Entity findTarget() {
