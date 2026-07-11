@@ -72,7 +72,7 @@ public final class b4n7re extends ModuleStructure {
         settings(tier, customPrefix, addPrefix, prefixText, addCustomColor, customColorHex, updateSeconds);
     }
 
-    private static final double MAX_RANGE = 24.0;
+    private static final double MAX_RANGE = 128.0;
     private UUID currentTarget;
     private Identifier cachedSkin;
     private String cachedTierLabel = "";

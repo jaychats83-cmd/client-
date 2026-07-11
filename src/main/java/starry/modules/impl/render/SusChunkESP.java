@@ -22,7 +22,7 @@ import java.awt.*;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SusChunkESP extends ModuleStructure {
     SliderSettings minScore = new SliderSettings("Min Score", "").setValue(12f).range(1f, 120f);
-    SliderSettings rangeChunks = new SliderSettings("Range Chunks", "").setValue(12f).range(1f, 32f);
+    SliderSettings rangeChunks = new SliderSettings("Range Chunks", "").setValue(24f).range(1f, 128f);
     SliderSettings alpha = new SliderSettings("Alpha", "").setValue(62f).range(15f, 180f);
     SliderSettings minStorage = new SliderSettings("Min Storage", "Minimum storage blocks needed before marking a chunk").setValue(2f).range(0f, 24f);
     SliderSettings clusterBonus = new SliderSettings("Cluster Bonus", "Extra score per storage block in a cluster").setValue(3f).range(0f, 12f);

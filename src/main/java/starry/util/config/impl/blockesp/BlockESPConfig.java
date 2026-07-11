@@ -4,13 +4,13 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
-import starry.util.config.impl.UserConfigPath;
 import starry.util.config.impl.consolelogger.Logger;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -19,9 +19,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
 public class BlockESPConfig {
     private static BlockESPConfig instance;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private final Path configPath;
     private final Set<String> blocks = new CopyOnWriteArraySet<>();
 
     private BlockESPConfig() {
+        Path configDir = Paths.get("starry", "configs");
+        try {
+            Files.createDirectories(configDir);
+        } catch (IOException ignored) {}
+        configPath = configDir.resolve("blockesp.json");
     }
 
     public static BlockESPConfig getInstance() {
@@ -70,6 +76,12 @@ public class BlockESPConfig {
         save();
     }
 
+    public void replaceAndSave(Iterable<String> selected) {
+        blocks.clear();
+        selected.forEach(blocks::add);
+        save();
+    }
+
     public int size() {
         return blocks.size();
     }
@@ -84,7 +96,7 @@ public class BlockESPConfig {
             for (String block : blocks) {
                 array.add(block);
             }
-            Files.writeString(configPath(), gson.toJson(array), StandardCharsets.UTF_8);
+            Files.writeString(configPath, gson.toJson(array), StandardCharsets.UTF_8);
         } catch (IOException e) {
             Logger.error("BlockESPConfig: Save failed! " + e.getMessage());
         }
@@ -92,9 +104,7 @@ public class BlockESPConfig {
 
     public void load() {
         try {
-            Path configPath = configPath();
             if (!Files.exists(configPath)) {
-                blocks.clear();
                 return;
             }
             String json = Files.readString(configPath, StandardCharsets.UTF_8);
@@ -105,9 +115,5 @@ public class BlockESPConfig {
         } catch (Exception e) {
             Logger.error("BlockESPConfig: Load failed! " + e.getMessage());
         }
-    }
-
-    private Path configPath() {
-        return UserConfigPath.resolve("blockesp.json");
     }
 }

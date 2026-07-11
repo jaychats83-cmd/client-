@@ -7,6 +7,7 @@ import starry.screens.clickgui.impl.module.handler.ModuleAnimationHandler;
 import starry.screens.clickgui.impl.module.handler.ModuleBindHandler;
 import starry.screens.clickgui.impl.module.handler.ModuleScrollHandler;
 import starry.screens.clickgui.impl.settingsrender.ColorComponent;
+import starry.screens.clickgui.impl.settingsrender.BlockSelectComponent;
 import starry.screens.clickgui.impl.settingsrender.MultiSelectComponent;
 import starry.screens.clickgui.impl.settingsrender.SelectComponent;
 import starry.util.interfaces.AbstractSettingComponent;
@@ -203,6 +204,7 @@ public class SettingsPanelRenderer {
     private float getComponentBaseHeight(AbstractSettingComponent c) {
         if (c instanceof SelectComponent) return ((SelectComponent) c).getTotalHeight();
         if (c instanceof MultiSelectComponent) return ((MultiSelectComponent) c).getTotalHeight();
+        if (c instanceof BlockSelectComponent) return ((BlockSelectComponent) c).getTotalHeight();
         if (c instanceof ColorComponent) return ((ColorComponent) c).getTotalHeight();
         return SETTING_HEIGHT;
     }

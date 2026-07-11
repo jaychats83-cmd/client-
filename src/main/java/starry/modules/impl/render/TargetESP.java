@@ -49,7 +49,7 @@ public class TargetESP extends ModuleStructure {
     ColorSetting color3 = new ColorSetting("Color 3", "Ghost accent RGB color")
             .setColor(new Color(150, 50, 255, 255).getRGB())
             .visible(() -> mode.isSelected("Ghost"));
-    SliderSettings range = new SliderSettings("Range", "Target search range").setValue(8f).range(2f, 16f);
+    SliderSettings range = new SliderSettings("Range", "Target search range").setValue(32f).range(2f, 256f);
     SliderSettings fadeTime = new SliderSettings("Fade Time", "How long the ESP stays after losing the target").setValue(0.45f).range(0.05f, 2f);
     SliderSettings crystalRotationSpeed = new SliderSettings("Crystal Speed", "Crystal mode rotation speed")
             .setValue(0.5f)

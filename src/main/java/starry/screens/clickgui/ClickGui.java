@@ -47,6 +47,11 @@ public class ClickGui extends Screen implements IMinecraft {
     private final GuiAnimation openAnimation = new GuiAnimation();
     private boolean closing = false;
 
+    private static int clickGuiKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
+
+    public static int getClickGuiKey() { return clickGuiKey; }
+    public static void setClickGuiKey(int key) { clickGuiKey = key; }
+
     private float hintAlphaAnimation = 0f;
     private long lastHintUpdateTime = System.currentTimeMillis();
     private static final float HINT_ANIM_SPEED = 6f;
@@ -479,6 +484,9 @@ public class ClickGui extends Screen implements IMinecraft {
 
         float spX = bgX + 218f, spY = bgY + 38f, spW = 172f, spH = BackgroundComponent.BG_HEIGHT - 48f;
         if (mx >= spX && mx <= spX + spW && my >= spY && my <= spY + spH) {
+            for (AbstractSettingComponent c : moduleComponent.getSettingComponents()) {
+                if (c.getSetting().isVisible() && c.mouseScrolled(mx, my, vertical)) return true;
+            }
             moduleComponent.handleSettingScroll(vertical, spH);
             return true;
         }

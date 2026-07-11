@@ -10,6 +10,10 @@ public class SettingComponentAdder {
 
     public void addSettingComponent(List<Setting> settings, List<AbstractSettingComponent> components) {
         settings.forEach(setting -> {
+            if (setting instanceof BlockSelectSetting blockSelectSetting) {
+                components.add(new BlockSelectComponent(blockSelectSetting));
+                return;
+            }
             if (setting instanceof BooleanSetting booleanSetting) {
                 components.add(new CheckboxComponent(booleanSetting));
             }

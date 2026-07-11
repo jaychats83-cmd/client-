@@ -12,10 +12,9 @@ import starry.events.impl.WorldRenderEvent;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BooleanSetting;
-import starry.modules.module.setting.implement.ButtonSetting;
+import starry.modules.module.setting.implement.BlockSelectSetting;
 import starry.modules.module.setting.implement.ColorSetting;
 import starry.modules.module.setting.implement.SliderSettings;
-import starry.modules.module.setting.implement.TextSetting;
 import starry.util.ColorUtil;
 import starry.util.config.impl.blockesp.BlockESPConfig;
 import starry.util.render.Render3D;
@@ -29,10 +28,9 @@ import starry.util.string.StringHelper;
 
 public class al8gug extends ModuleStructure {
     ColorSetting color = new ColorSetting("Color", "Block highlight color").value(ColorUtil.getColor(255, 0, 0, 255));
-    TextSetting blockSearch = new TextSetting("Block Search", "Type a block id or name").setText("minecraft:diamond_ore");
-    ButtonSetting addBlock = new ButtonSetting("Add Block", "Adds the best matching block").setButtonName("Add Best Match").setRunnable(this::addSearchedBlock);
-    ButtonSetting removeBlock = new ButtonSetting("Remove Block", "Removes the best matching block").setButtonName("Remove Match").setRunnable(this::removeSearchedBlock);
-    SliderSettings range = new SliderSettings(StringHelper.decrypt(new byte[]{24, (byte)-94, 59, (byte)-127, 103, (byte)-24}), StringHelper.decrypt(new byte[]{8, (byte)-81, 48, (byte)-117, 121, (byte)-69, 68, (byte)-77, 43, (byte)-79, 60, (byte)-128, 50, (byte)-23, 86, (byte)-78, 35, (byte)-74, 44})).range(1, 128).setValue(32);
+    BlockSelectSetting blockSelector = new BlockSelectSetting("Blocks", "Search all registered blocks and click to toggle their ESP")
+            .selected(BlockESPConfig.getInstance().getBlocks()).onChange(this::updateSelectedBlocks);
+    SliderSettings range = new SliderSettings(StringHelper.decrypt(new byte[]{24, (byte)-94, 59, (byte)-127, 103, (byte)-24}), StringHelper.decrypt(new byte[]{8, (byte)-81, 48, (byte)-117, 121, (byte)-69, 68, (byte)-77, 43, (byte)-79, 60, (byte)-128, 50, (byte)-23, 86, (byte)-78, 35, (byte)-74, 44})).range(1, 512).setValue(96);
     BooleanSetting notifyInChat = new BooleanSetting(StringHelper.decrypt(new byte[]{4, (byte)-84, 43, (byte)-127, 116, (byte)-14, 84, (byte)-73, 62, (byte)-86, 48, (byte)-122, 97}), StringHelper.decrypt(new byte[]{25, (byte)-85, 48, (byte)-97, 50, (byte)-3, 88, (byte)-93, 36, (byte)-89, 127, (byte)-118, 126, (byte)-12, 84, (byte)-67, 106, (byte)-96, 48, (byte)-121, 96, (byte)-1, 94, (byte)-72, 43, (byte)-73, 58, (byte)-101, 50, (byte)-14, 89, (byte)-10, 41, (byte)-85, 62, (byte)-100})).setValue(false);
 
     Set<String> blocksToHighlight = new CopyOnWriteArraySet<>();
@@ -43,7 +41,7 @@ public class al8gug extends ModuleStructure {
 
     public al8gug() {
         super(StringHelper.decrypt(new byte[]{8, (byte)-81, 48, (byte)-117, 121, (byte)-34, 100, (byte)-122}), StringHelper.decrypt(new byte[]{8, (byte)-81, 48, (byte)-117, 121, (byte)-69, 114, (byte)-123, 26}), ModuleCategory.ESP);
-        settings(color, blockSearch, addBlock, removeBlock, range, notifyInChat);
+        settings(color, blockSelector, range, notifyInChat);
     }
 
     public Set<String> getBlocksToHighlight() {
@@ -54,6 +52,7 @@ public class al8gug extends ModuleStructure {
     public void activate() {
         blocksToHighlight.clear();
         blocksToHighlight.addAll(BlockESPConfig.getInstance().getBlocks());
+        blockSelector.selected(blocksToHighlight);
         notifiedBlocks.clear();
     }
 
@@ -77,8 +76,8 @@ public class al8gug extends ModuleStructure {
         long currentTime = System.nanoTime() / 1_000_000;
         if (currentTime - lastScanTime >= 2000) {
             renderBlocks.clear();
-            int chunkRange = 2;
-            int yRange = 48;
+            int chunkRange = Math.max(1, Math.min(mc.options.getClampedViewDistance(), (int)Math.ceil(range.getValue() / 16.0)));
+            int yRange = Math.max(48, (int)range.getValue());
             for (int x = -chunkRange; x <= chunkRange; x++) {
                 for (int z = -chunkRange; z <= chunkRange; z++) {
                     int chunkX = (playerPos.getX() >> 4) + x;
@@ -171,43 +170,10 @@ public class al8gug extends ModuleStructure {
         }
     }
 
-    private void addSearchedBlock() {
-        String id = resolveBlockId(blockSearch.getText());
-        if (id == null) {
-            ChatMessage.brandmessage("No matching block found");
-            return;
-        }
-        BlockESPConfig.getInstance().addBlockAndSave(id);
-        blocksToHighlight.add(id);
+    private void updateSelectedBlocks(java.util.List<String> selected) {
+        blocksToHighlight.clear();
+        blocksToHighlight.addAll(selected);
+        BlockESPConfig.getInstance().replaceAndSave(selected);
         renderBlocks.clear();
-        ChatMessage.brandmessage("Added BlockESP block " + id);
-    }
-
-    private void removeSearchedBlock() {
-        String id = resolveBlockId(blockSearch.getText());
-        if (id == null) {
-            ChatMessage.brandmessage("No matching block found");
-            return;
-        }
-        BlockESPConfig.getInstance().removeBlockAndSave(id);
-        blocksToHighlight.remove(id);
-        renderBlocks.clear();
-        ChatMessage.brandmessage("Removed BlockESP block " + id);
-    }
-
-    private String resolveBlockId(String query) {
-        if (query == null || query.isBlank()) return null;
-        String normalized = query.toLowerCase().trim();
-        if (!normalized.contains(":")) normalized = "minecraft:" + normalized;
-        for (Block block : Registries.BLOCK) {
-            String id = Registries.BLOCK.getId(block).toString();
-            if (id.equals(normalized)) return id;
-        }
-        String loose = normalized.replace("minecraft:", "");
-        for (Block block : Registries.BLOCK) {
-            String id = Registries.BLOCK.getId(block).toString();
-            if (id.contains(loose)) return id;
-        }
-        return null;
     }
 }
