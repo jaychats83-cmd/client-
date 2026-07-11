@@ -15,10 +15,12 @@ import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -34,13 +36,14 @@ public class AutoHitCrystal extends ModuleStructure {
     BooleanSetting workWithCrystal = new BooleanSetting("Work With Crystal", "").setValue(false);
     BooleanSetting clickSimulation = new BooleanSetting("Click Simulation", "Makes the CPS hud think you're legit").setValue(false);
     BooleanSetting swordSwap = new BooleanSetting("Sword Swap", "").setValue(true);
+    BooleanSetting silentAim = new BooleanSetting("Silent Aim", "Keep your camera still while other players see placement-facing head rotations").setValue(true);
 
     private long lastPlaceTime, lastSwitchTime;
     private boolean active, crystalling, crystalSelected;
 
     public AutoHitCrystal() {
         super("Auto Hit Crystal", ModuleCategory.CPVP);
-        settings(activateKey, checkPlace, switchDelay, switchChance, placeDelay, placeChance, workWithTotem, workWithCrystal, clickSimulation, swordSwap);
+        settings(activateKey, checkPlace, switchDelay, switchChance, placeDelay, placeChance, workWithTotem, workWithCrystal, clickSimulation, swordSwap, silentAim);
     }
 
     @Override
@@ -77,6 +80,7 @@ public class AutoHitCrystal extends ModuleStructure {
                     if (mc.player.isHolding(Items.OBSIDIAN)) {
                         if (!delayPassed(lastPlaceTime, placeDelay)) return;
                         if (ThreadLocalRandom.current().nextInt(1, 101) <= placeChance.getValue()) {
+                            aimAt(hit.getPos());
                             mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
                             mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
                             lastPlaceTime = System.currentTimeMillis();
@@ -96,6 +100,7 @@ public class AutoHitCrystal extends ModuleStructure {
                 }
                 if (mc.player.isHolding(Items.END_CRYSTAL)) {
                     if (mc.crosshairTarget instanceof BlockHitResult hit) {
+                        aimAt(hit.getPos());
                         mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
                         mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
                     }
@@ -152,5 +157,17 @@ public class AutoHitCrystal extends ModuleStructure {
 
     private boolean delayPassed(long lastActionTime, SliderSettings setting) {
         return lastActionTime == 0 || System.currentTimeMillis() - lastActionTime >= setting.getValue();
+    }
+
+    private void aimAt(Vec3d target) {
+        if (!silentAim.isValue() || mc.getNetworkHandler() == null) return;
+        double x = target.x - mc.player.getX();
+        double y = target.y - mc.player.getEyeY();
+        double z = target.z - mc.player.getZ();
+        double horizontal = Math.sqrt(x * x + z * z);
+        float yaw = (float) Math.toDegrees(Math.atan2(-x, z));
+        float pitch = Math.max(-90.0F, Math.min(90.0F, (float) Math.toDegrees(-Math.atan2(y, horizontal))));
+        mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(
+                yaw, pitch, mc.player.isOnGround(), mc.player.horizontalCollision));
     }
 }

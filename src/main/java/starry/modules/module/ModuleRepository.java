@@ -66,6 +66,8 @@ public class ModuleRepository {
                 .add(new FakeScoreboard())
                 .add(new Keystrokes())
                 .add(new NoBounce())
+                .add(new BaseBlockFinder())
+                .add(new BaseEntityFinder())
                 .add(new SusChunkESP())
                 .add(new TargetHud())
                 .add(new x7m4j9())
@@ -120,7 +122,8 @@ public class ModuleRepository {
                 .add(new MeleeAssist())
                 .add(new RepeatingCommand())
                 .add(new StateToggle())
-                .add(new TargetPlace());
+                .add(new TargetPlace())
+                .add(new UICommand());
     }
 
     public ModuleBuilder builder() {

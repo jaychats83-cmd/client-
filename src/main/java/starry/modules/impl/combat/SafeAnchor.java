@@ -12,6 +12,7 @@ import starry.modules.module.setting.implement.SliderSettings;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -30,6 +31,7 @@ public class SafeAnchor extends ModuleStructure {
     BooleanSetting placeAnchor = new BooleanSetting("Place Anchor", "").setValue(true);
     BooleanSetting placeGlowstoneWall = new BooleanSetting("Place Glowstone Wall", "").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing Hand", "").setValue(true);
+    BooleanSetting silentAim = new BooleanSetting("Silent Aim", "Keep your camera still while other players see placement-facing head rotations").setValue(true);
 
     private int step;
     private long lastStepTime;
@@ -37,8 +39,8 @@ public class SafeAnchor extends ModuleStructure {
     private BlockPos anchorPos, wallPos;
 
     public SafeAnchor() {
-        super("Safe Anchor", ModuleCategory.CPVP);
-        settings(activateKey, switchDelay, totemSlot, range, placeAnchor, placeGlowstoneWall, swing);
+        super("Safe Anchor", "Safe anchor sequence with optional server-visible placement aim", ModuleCategory.CPVP);
+        settings(activateKey, switchDelay, totemSlot, range, placeAnchor, placeGlowstoneWall, swing, silentAim);
     }
 
     @Override
@@ -129,6 +131,7 @@ public class SafeAnchor extends ModuleStructure {
         if (!selectItem(item)) return false;
         BlockHitResult hit = supportHit(pos);
         if (hit == null) return false;
+        aimAt(hit.getPos());
         mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
         if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
         return true;
@@ -136,14 +139,16 @@ public class SafeAnchor extends ModuleStructure {
 
     private boolean placeOn(BlockPos pos, net.minecraft.item.Item item) {
         if (!selectItem(item)) return false;
-        BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(pos), Direction.UP, pos, false);
+        BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(pos).add(0, 0.5, 0), Direction.UP, pos, false);
+        aimAt(hit.getPos());
         mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
         if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
         return true;
     }
 
     private void chargeAnchor(BlockPos pos) {
-        BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(pos), Direction.UP, pos, false);
+        BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(pos).add(0, 0.5, 0), Direction.UP, pos, false);
+        aimAt(hit.getPos());
         mc.interactionManager.interactBlock(mc.player, net.minecraft.util.Hand.MAIN_HAND, hit);
         if (swing.isValue()) mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
     }
@@ -152,9 +157,26 @@ public class SafeAnchor extends ModuleStructure {
         for (Direction dir : Direction.values()) {
             BlockPos neighbor = pos.offset(dir);
             if (isReplaceable(neighbor)) continue;
-            return new BlockHitResult(Vec3d.ofCenter(neighbor), dir.getOpposite(), neighbor, false);
+            Direction face = dir.getOpposite();
+            Vec3d faceCenter = Vec3d.ofCenter(neighbor).add(Vec3d.of(face.getVector()).multiply(0.5));
+            return new BlockHitResult(faceCenter, face, neighbor, false);
         }
         return null;
+    }
+
+    private void aimAt(Vec3d target) {
+        if (!silentAim.isValue() || mc.getNetworkHandler() == null) return;
+
+        double x = target.x - mc.player.getX();
+        double y = target.y - mc.player.getEyeY();
+        double z = target.z - mc.player.getZ();
+        double horizontal = Math.sqrt(x * x + z * z);
+        float yaw = (float) Math.toDegrees(Math.atan2(-x, z));
+        float pitch = (float) Math.toDegrees(-Math.atan2(y, horizontal));
+        pitch = Math.max(-90.0F, Math.min(90.0F, pitch));
+
+        mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(
+                yaw, pitch, mc.player.isOnGround(), mc.player.horizontalCollision));
     }
 
     private boolean isReplaceable(BlockPos pos) {

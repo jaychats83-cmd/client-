@@ -13,6 +13,7 @@ import net.minecraft.block.AbstractRailBlock;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -38,7 +39,7 @@ public class CartPvPModule extends ModuleStructure {
     BooleanSetting preferActivatorRail = new BooleanSetting("Activator Rail", "").setValue(true);
     BooleanSetting preferTntCart = new BooleanSetting("Prefer TNT Cart", "").setValue(true);
     BooleanSetting seeOnly = new BooleanSetting("See Only", "").setValue(false);
-    BooleanSetting rotate = new BooleanSetting("Rotate", "").setValue(true);
+    BooleanSetting silentAim = new BooleanSetting("Silent Aim", "Keep your camera still while other players see placement-facing head rotations").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
     BooleanSetting switchBack = new BooleanSetting("Switch Back", "").setValue(true);
     BooleanSetting trapFeet = new BooleanSetting("Trap Feet", "").setValue(true);
@@ -50,7 +51,7 @@ public class CartPvPModule extends ModuleStructure {
     public CartPvPModule() {
         super("Cart PvP", ModuleCategory.CPVP);
         settings(mode, targetMode, railMode, cartMode, order, range, delayMs, safeDistance, cartAmount,
-                preferActivatorRail, preferTntCart, seeOnly, rotate, swing, switchBack, trapFeet, trapHead);
+                preferActivatorRail, preferTntCart, seeOnly, silentAim, swing, switchBack, trapFeet, trapHead);
     }
 
     @Override
@@ -67,12 +68,6 @@ public class CartPvPModule extends ModuleStructure {
         if (target == null || !target.isAlive()) return;
 
         if (mode.isSelected("Safe Cart") && mc.player.distanceTo(target) < safeDistance.getValue()) return;
-
-        if (rotate.isValue()) {
-            Vec3d aim = target.getEyePos();
-            mc.player.setYaw((float) Math.toDegrees(Math.atan2(aim.z - mc.player.getZ(), aim.x - mc.player.getX())) - 90);
-            mc.player.setPitch((float) Math.toDegrees(-Math.atan2(aim.y - mc.player.getEyeY(), mc.player.distanceTo(target))));
-        }
 
         BlockPos base = chooseRailPos(target);
         if (base == null) return;
@@ -174,6 +169,7 @@ public class CartPvPModule extends ModuleStructure {
     private boolean click(BlockPos block, Direction side) {
         if (mc.world.getBlockState(block).isAir()) return false;
         BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(block).add(Vec3d.of(side.getVector()).multiply(0.5)), side, block, false);
+        aimAt(hit.getPos());
         ActionResult result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
         if (result.isAccepted()) { if (swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND); return true; }
         return false;
@@ -210,5 +206,17 @@ public class CartPvPModule extends ModuleStructure {
         if (slot < 0 || slot > 8) return;
         mc.player.getInventory().setSelectedSlot(slot);
         if (mc.getNetworkHandler() != null) mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+    }
+
+    private void aimAt(Vec3d targetPos) {
+        if (!silentAim.isValue() || mc.getNetworkHandler() == null) return;
+        double x = targetPos.x - mc.player.getX();
+        double y = targetPos.y - mc.player.getEyeY();
+        double z = targetPos.z - mc.player.getZ();
+        double horizontal = Math.sqrt(x * x + z * z);
+        float yaw = (float) Math.toDegrees(Math.atan2(-x, z));
+        float pitch = Math.max(-90.0F, Math.min(90.0F, (float) Math.toDegrees(-Math.atan2(y, horizontal))));
+        mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(
+                yaw, pitch, mc.player.isOnGround(), mc.player.horizontalCollision));
     }
 }

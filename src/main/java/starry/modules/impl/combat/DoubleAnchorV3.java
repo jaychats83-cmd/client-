@@ -3,14 +3,16 @@ package starry.modules.impl.combat;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import net.minecraft.block.Blocks;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.client.input.MouseInput;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import org.lwjgl.glfw.GLFW;
 import starry.events.api.EventHandler;
 import starry.events.impl.TickEvent;
+import starry.mixin.MouseAccessor;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BindSetting;
@@ -21,59 +23,162 @@ import starry.modules.module.setting.implement.SliderSettings;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DoubleAnchorV3 extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Activate Key", "Key that starts double anchoring").setKey(GLFW.GLFW_KEY_G);
-    SliderSettings switchDelay = new SliderSettings("Switch Delay", "Delay between steps in ticks").setValue(0).range(0, 20);
-    SliderSettings totemSlot = new SliderSettings("Totem Slot", "Slot held after charging").setValue(1).range(1, 9);
-    MinMaxSetting randomDelay = new MinMaxSetting("Random Delay", "Extra delay in ticks").defaultValue(0, 0).range(0, 100);
-    BooleanSetting randomInteractions = new BooleanSetting("Random Interactions", "Randomize charge interactions").setValue(false);
-    MinMaxSetting randomHits = new MinMaxSetting("Random Hits", "Interactions per charge step").defaultValue(1, 4).range(1, 4);
-    int delayCounter, sampledDelay, step;
+    SliderSettings switchDelay = new SliderSettings("Switch Delay", "Base delay between sequence steps in ticks").setValue(1).range(0, 20);
+    MinMaxSetting randomDelay = new MinMaxSetting("Random Delay", "Random extra delay added to each step in ticks").defaultValue(0, 0).range(0, 20);
+    SliderSettings finishSlot = new SliderSettings("Finish Slot", "Hotbar slot selected when the sequence finishes").setValue(1).range(1, 9);
+    BooleanSetting restoreSlot = new BooleanSetting("Restore Original Slot", "Return to the slot held before the sequence instead of Finish Slot").setValue(false);
+    BooleanSetting holdToRun = new BooleanSetting("Hold To Run", "Cancel the sequence when the activation key is released").setValue(true);
+    BooleanSetting randomInteractions = new BooleanSetting("Random Charge Clicks", "Randomize the number of glowstone interactions per charge step").setValue(false);
+    MinMaxSetting randomHits = new MinMaxSetting("Charge Clicks", "Glowstone interactions per charge step").defaultValue(1, 4).range(1, 4);
+
+    int delayCounter;
+    int sampledDelay = -1;
+    int step;
+    int originalSlot = -1;
     boolean anchoring;
 
     public DoubleAnchorV3() {
-        super("Double Anchor V3", "Donor double-anchor sequence using only a real targeted block face", ModuleCategory.CPVP);
-        settings(activateKey, switchDelay, totemSlot, randomDelay, randomInteractions, randomHits);
+        super("Double Anchor V3", "Legit input macro using real targeted block faces; no AirPlace or direct packet sending", ModuleCategory.CPVP);
+        settings(activateKey, switchDelay, randomDelay, finishSlot, restoreSlot, holdToRun,
+                randomInteractions, randomHits);
     }
-    @Override public void activate() { resetAll(); }
-    @Override public void deactivate() { resetAll(); }
 
-    @EventHandler public void onTick(TickEvent event) {
-        if (mc.currentScreen != null || mc.player == null || mc.world == null || mc.interactionManager == null || !hasItems()) return;
-        if (!anchoring && !activationPressed()) return;
-        if (!(mc.crosshairTarget instanceof BlockHitResult hit)) { anchoring = false; resetDelay(); return; }
-        if (step == 0 && mc.world.getBlockState(hit.getBlockPos()).isOf(Blocks.RESPAWN_ANCHOR)) { step = 2; return; }
-        if (delayCounter++ < switchDelay.getInt() + randomDelay()) return;
-        resetDelay();
-        switch (step) {
-            case 0 -> select(Items.RESPAWN_ANCHOR);
-            case 1 -> use(hit);
-            case 2 -> select(Items.GLOWSTONE);
-            case 3 -> useRandom(hit);
-            case 4 -> select(Items.RESPAWN_ANCHOR);
-            case 5 -> { use(hit); use(hit); }
-            case 6 -> select(Items.GLOWSTONE);
-            case 7 -> useRandom(hit);
-            case 8 -> selectSlot(totemSlot.getInt() - 1);
-            case 9 -> use(hit);
-            case 10 -> { resetAll(); return; }
+    @Override
+    public void activate() {
+        resetAll(false);
+    }
+
+    @Override
+    public void deactivate() {
+        resetAll(true);
+    }
+
+    @EventHandler
+    public void onTick(TickEvent event) {
+        if (mc.currentScreen != null || mc.player == null || mc.world == null || mc.interactionManager == null) return;
+
+        if (!anchoring) {
+            if (!activationPressed() || !hasItems()) return;
+            anchoring = true;
+            originalSlot = mc.player.getInventory().getSelectedSlot();
+        } else if (holdToRun.isValue() && !activationPressed()) {
+            resetAll(true);
+            return;
         }
-        step++;
+
+        BlockHitResult hit = targetedBlock();
+        if (hit == null) {
+            resetAll(true);
+            return;
+        }
+
+        // If the player is already looking at an anchor, begin with its charge step.
+        if (step == 0 && mc.world.getBlockState(hit.getBlockPos()).isOf(Blocks.RESPAWN_ANCHOR)) {
+            step = 2;
+            resetDelay();
+            return;
+        }
+
+        if (!delayPassed()) return;
+
+        boolean advance = switch (step) {
+            case 0 -> select(Items.RESPAWN_ANCHOR);
+            case 1 -> clickUse(1);
+            case 2 -> select(Items.GLOWSTONE);
+            case 3 -> clickUse(chargeClicks());
+            case 4 -> select(Items.RESPAWN_ANCHOR);
+            case 5 -> clickUse(1);
+            case 6 -> select(Items.GLOWSTONE);
+            case 7 -> clickUse(chargeClicks());
+            case 8 -> selectSlot(restoreSlot.isValue() ? originalSlot : finishSlot.getInt() - 1);
+            case 9 -> clickUse(1);
+            case 10 -> {
+                resetAll(false);
+                yield false;
+            }
+            default -> false;
+        };
+
+        if (advance) {
+            step++;
+            resetDelay();
+        }
     }
+
+    private BlockHitResult targetedBlock() {
+        if (!(mc.crosshairTarget instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return null;
+        return hit;
+    }
+
     private boolean hasItems() {
-        boolean anchor = false, glow = false;
-        for (int i=0;i<9;i++) { ItemStack s=mc.player.getInventory().getStack(i); anchor |= s.isOf(Items.RESPAWN_ANCHOR); glow |= s.isOf(Items.GLOWSTONE); }
-        return anchor && glow;
+        boolean anchor = false;
+        boolean glowstone = false;
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack stack = mc.player.getInventory().getStack(slot);
+            anchor |= stack.isOf(Items.RESPAWN_ANCHOR);
+            glowstone |= stack.isOf(Items.GLOWSTONE);
+        }
+        return anchor && glowstone;
     }
+
     private boolean activationPressed() {
-        int key=activateKey.getKey();
-        if (key == GLFW.GLFW_KEY_UNKNOWN || !pressed(key)) { resetAll(); return false; }
-        anchoring=true; return true;
+        int key = activateKey.getKey();
+        if (key == GLFW.GLFW_KEY_UNKNOWN) return false;
+        return key < 0
+                ? GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), key + 100) == GLFW.GLFW_PRESS
+                : GLFW.glfwGetKey(mc.getWindow().getHandle(), key) == GLFW.GLFW_PRESS;
     }
-    private boolean pressed(int key) { return key < 0 ? GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), key+100)==GLFW.GLFW_PRESS : GLFW.glfwGetKey(mc.getWindow().getHandle(), key)==GLFW.GLFW_PRESS; }
-    private int randomDelay() { if (sampledDelay==0 && randomDelay.getIntMax()>randomDelay.getIntMin()) sampledDelay=Math.max(0,randomDelay.getRandomValueInt()); return sampledDelay; }
-    private void useRandom(BlockHitResult hit) { int count=randomInteractions.isValue()?Math.max(1,Math.min(4,randomHits.getRandomValueInt())):1; for(int i=0;i<count;i++) use(hit); }
-    private void use(BlockHitResult hit) { mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit); mc.player.swingHand(Hand.MAIN_HAND); }
-    private void select(net.minecraft.item.Item item) { for(int i=0;i<9;i++) if(mc.player.getInventory().getStack(i).isOf(item)){selectSlot(i);return;} }
-    private void selectSlot(int slot) { if(slot<0||slot>8)return; mc.player.getInventory().setSelectedSlot(slot); if(mc.getNetworkHandler()!=null)mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot)); }
-    private void resetDelay(){delayCounter=0;sampledDelay=0;}
-    private void resetAll(){step=0;anchoring=false;resetDelay();}
+
+    private boolean delayPassed() {
+        if (sampledDelay < 0) {
+            sampledDelay = randomDelay.getIntMax() > randomDelay.getIntMin()
+                    ? Math.max(0, randomDelay.getRandomValueInt())
+                    : Math.max(0, randomDelay.getIntMin());
+        }
+        return delayCounter++ >= switchDelay.getInt() + sampledDelay;
+    }
+
+    private int chargeClicks() {
+        return randomInteractions.isValue()
+                ? Math.max(1, Math.min(4, randomHits.getRandomValueInt()))
+                : 1;
+    }
+
+    private boolean clickUse(int count) {
+        MouseInput input = new MouseInput(GLFW.GLFW_MOUSE_BUTTON_RIGHT, 0);
+        MouseAccessor mouse = (MouseAccessor) mc.mouse;
+        for (int i = 0; i < count; i++) {
+            mouse.qcloud$onMouseButton(mc.getWindow().getHandle(), input, GLFW.GLFW_PRESS);
+            mouse.qcloud$onMouseButton(mc.getWindow().getHandle(), input, GLFW.GLFW_RELEASE);
+        }
+        return true;
+    }
+
+    private boolean select(Item item) {
+        for (int slot = 0; slot < 9; slot++) {
+            if (mc.player.getInventory().getStack(slot).isOf(item)) return selectSlot(slot);
+        }
+        resetAll(true);
+        return false;
+    }
+
+    private boolean selectSlot(int slot) {
+        if (slot < 0 || slot > 8) return false;
+        // Vanilla observes this selection and performs its normal slot sync; this macro never sends a packet itself.
+        mc.player.getInventory().setSelectedSlot(slot);
+        return true;
+    }
+
+    private void resetDelay() {
+        delayCounter = 0;
+        sampledDelay = -1;
+    }
+
+    private void resetAll(boolean restoreOriginal) {
+        if (restoreOriginal && restoreSlot.isValue() && mc.player != null && originalSlot >= 0) selectSlot(originalSlot);
+        step = 0;
+        anchoring = false;
+        originalSlot = -1;
+        resetDelay();
+    }
 }
