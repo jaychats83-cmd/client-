@@ -27,10 +27,8 @@ public class DoubleAnchorV3 extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Activate Key", "Key that starts double anchoring").setKey(GLFW.GLFW_KEY_G);
     SliderSettings switchDelay = new SliderSettings("Switch Delay", "Base delay between sequence steps in ticks").setValue(1).range(0, 20);
     MinMaxSetting randomDelay = new MinMaxSetting("Random Delay", "Random extra delay added to each step in ticks").defaultValue(0, 0).range(0, 20);
-    SliderSettings detonationSlot = new SliderSettings("Detonation Slot", "Non-anchor, non-glowstone hotbar slot used to explode each charged anchor").setValue(1).range(1, 9);
-    SliderSettings finishSlot = new SliderSettings("Finish Slot", "Hotbar slot selected when the sequence finishes").setValue(1).range(1, 9);
+    SliderSettings finishSlot = new SliderSettings("Totem / Finish Slot", "Non-anchor, non-glowstone slot used to detonate anchor two and finish the sequence").setValue(1).range(1, 9);
     BooleanSetting restoreSlot = new BooleanSetting("Restore Original Slot", "Return to the slot held before the sequence instead of Finish Slot").setValue(false);
-    BooleanSetting holdToRun = new BooleanSetting("Hold To Run", "Cancel the sequence when the activation key is released").setValue(true);
     BooleanSetting randomInteractions = new BooleanSetting("Random Charge Clicks", "Randomize the number of glowstone interactions per charge step").setValue(false);
     MinMaxSetting randomHits = new MinMaxSetting("Charge Clicks", "Glowstone interactions per charge step").defaultValue(1, 4).range(1, 4);
 
@@ -43,7 +41,7 @@ public class DoubleAnchorV3 extends ModuleStructure {
 
     public DoubleAnchorV3() {
         super("Double Anchor V3", "Legit input macro using real targeted block faces; no AirPlace or direct packet sending", ModuleCategory.CPVP);
-        settings(activateKey, switchDelay, randomDelay, detonationSlot, finishSlot, restoreSlot, holdToRun,
+        settings(activateKey, switchDelay, randomDelay, finishSlot, restoreSlot,
                 randomInteractions, randomHits);
     }
 
@@ -68,9 +66,6 @@ public class DoubleAnchorV3 extends ModuleStructure {
             anchorPos = resolveAnchorPos(startHit);
             anchoring = true;
             originalSlot = mc.player.getInventory().getSelectedSlot();
-        } else if (holdToRun.isValue() && !activationPressed()) {
-            resetAll(true);
-            return;
         }
 
         BlockHitResult hit = targetedBlock();
@@ -90,15 +85,15 @@ public class DoubleAnchorV3 extends ModuleStructure {
             case 1 -> clickUse(1);
             case 2 -> isAnchorPresent() && select(Items.GLOWSTONE);
             case 3 -> clickUse(chargeClicks());
-            case 4 -> isAnchorCharged() && selectDetonationSlot();
+            case 4 -> isAnchorCharged() && select(Items.RESPAWN_ANCHOR);
             case 5 -> clickUse(1);
-            case 6 -> !isAnchorPresent() && select(Items.RESPAWN_ANCHOR);
+            case 6 -> !isAnchorPresent();
             case 7 -> clickUse(1);
             case 8 -> isAnchorPresent() && select(Items.GLOWSTONE);
             case 9 -> clickUse(chargeClicks());
-            case 10 -> isAnchorCharged() && selectDetonationSlot();
+            case 10 -> isAnchorCharged() && selectFinishSlot();
             case 11 -> clickUse(1);
-            case 12 -> !isAnchorPresent() && selectSlot(restoreSlot.isValue() ? originalSlot : finishSlot.getInt() - 1);
+            case 12 -> !isAnchorPresent() && (!restoreSlot.isValue() || selectSlot(originalSlot));
             case 13 -> {
                 resetAll(false);
                 yield false;
@@ -189,8 +184,8 @@ public class DoubleAnchorV3 extends ModuleStructure {
         return false;
     }
 
-    private boolean selectDetonationSlot() {
-        int slot = detonationSlot.getInt() - 1;
+    private boolean selectFinishSlot() {
+        int slot = finishSlot.getInt() - 1;
         if (slot < 0 || slot > 8) return false;
         ItemStack stack = mc.player.getInventory().getStack(slot);
         if (stack.isOf(Items.RESPAWN_ANCHOR) || stack.isOf(Items.GLOWSTONE)) {
