@@ -28,6 +28,7 @@ import starry.util.math.FrameRateCounter;
 import starry.util.render.Render2D;
 import starry.util.render.shader.Scissor;
 import starry.util.render.gif.GifRender;
+import starry.util.render.font.Fonts;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -46,6 +47,7 @@ public class ClickGui extends Screen implements IMinecraft {
 
     private final GuiAnimation openAnimation = new GuiAnimation();
     private boolean closing = false;
+    private boolean destructChoiceOpen = false;
 
     private static int clickGuiKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
 
@@ -73,6 +75,7 @@ public class ClickGui extends Screen implements IMinecraft {
     protected void init() {
         super.init();
         closing = false;
+        destructChoiceOpen = false;
         openAnimation.setMs(250).setValue(1.0).setDirection(Direction.FORWARDS).reset();
         hintAlphaAnimation = 0f;
         lastHintUpdateTime = System.currentTimeMillis();
@@ -100,7 +103,7 @@ public class ClickGui extends Screen implements IMinecraft {
     }
 
     public void openGui() {
-        if (mc.currentScreen == null) {
+        if (!SelfDestruct.isSessionDisabled() && mc.currentScreen == null) {
             closing = false;
             openAnimation.setMs(250).setValue(1.0).setDirection(Direction.FORWARDS).reset();
             mc.setScreen(this);
@@ -250,6 +253,8 @@ public class ClickGui extends Screen implements IMinecraft {
 
         clientSettingsRenderer.render(context, bgX, bgY, mx, my, delta, FIXED_GUI_SCALE, alphaMultiplier);
 
+        if (destructChoiceOpen) renderDestructChoices(bgX, bgY, alphaMultiplier);
+
         context.getMatrices().popMatrix();
 
         float finalHintAlpha = hintAlphaAnimation * alphaMultiplier;
@@ -267,6 +272,25 @@ public class ClickGui extends Screen implements IMinecraft {
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         if (closing) return false;
+
+        if (destructChoiceOpen) {
+            int guiScale = mc.getWindow().calculateScaleFactor(mc.options.getGuiScale().getValue(), mc.forcesUnicodeFont());
+            float scale = (float) FIXED_GUI_SCALE / guiScale;
+            double mx = click.x() / scale, my = click.y() / scale;
+            float[] bg = calculateBackground(scale);
+            float modalX = bg[0] + 100f, modalY = bg[1] + 78f;
+            float buttonY = modalY + 55f;
+            if (click.button() == 0 && my >= buttonY && my <= buttonY + 24f) {
+                if (mx >= modalX + 10f && mx <= modalX + 95f) {
+                    destructChoiceOpen = false;
+                    SelfDestruct.destruct();
+                } else if (mx >= modalX + 105f && mx <= modalX + 190f) {
+                    destructChoiceOpen = false;
+                    SelfDestruct.disableForSession();
+                }
+            }
+            return true;
+        }
 
         // If a module is in binding mode, any mouse button sets the bind
         if (moduleComponent.getBindingModule() != null) {
@@ -290,7 +314,7 @@ public class ClickGui extends Screen implements IMinecraft {
             int bottomBtn = background.getBottomButtonAt(mx, my, bgX, bgY);
             if (bottomBtn >= 0 && click.button() == 0) {
                 if (bottomBtn == 0) {
-                    SelfDestruct.destruct();
+                    destructChoiceOpen = true;
                 } else if (bottomBtn == 1) {
                     clientSettingsRenderer.toggle();
                 } else if (bottomBtn == 2) {
@@ -496,6 +520,10 @@ public class ClickGui extends Screen implements IMinecraft {
     @Override
     public boolean keyPressed(KeyInput input) {
         if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+            if (destructChoiceOpen) {
+                destructChoiceOpen = false;
+                return true;
+            }
             if (configsRenderer.isActive()) {
                 configsRenderer.toggle();
                 return true;
@@ -604,5 +632,27 @@ public class ClickGui extends Screen implements IMinecraft {
             closing = true;
             startActualClose();
         }
+    }
+
+    private void renderDestructChoices(float bgX, float bgY, float alphaMultiplier) {
+        int alpha = (int) (255 * alphaMultiplier);
+        float x = bgX + 100f, y = bgY + 78f, width = 200f, height = 94f;
+        Render2D.rect(bgX, bgY, BackgroundComponent.BG_WIDTH, BackgroundComponent.BG_HEIGHT,
+                new Color(0, 0, 0, (int) (175 * alphaMultiplier)).getRGB(), 15);
+        Render2D.rect(x, y, width, height, new Color(16, 16, 18, alpha).getRGB(), 8);
+        Render2D.outline(x, y, width, height, 0.7f, new Color(75, 75, 82, alpha).getRGB(), 8);
+
+        Fonts.BOLD.drawCentered("Self Destruct", x + width / 2f, y + 14f, 8,
+                new Color(245, 245, 248, alpha).getRGB());
+        Fonts.REGULAR.drawCentered("Choose how to disable the client", x + width / 2f, y + 31f, 5,
+                new Color(155, 155, 165, alpha).getRGB());
+
+        float buttonY = y + 55f;
+        Render2D.rect(x + 10f, buttonY, 85f, 24f, new Color(115, 35, 42, alpha).getRGB(), 5);
+        Render2D.rect(x + 105f, buttonY, 85f, 24f, new Color(35, 78, 115, alpha).getRGB(), 5);
+        Fonts.BOLD.drawCentered("Full Destruct", x + 52.5f, buttonY + 9f, 5,
+                new Color(255, 235, 235, alpha).getRGB());
+        Fonts.BOLD.drawCentered("Disable Session", x + 147.5f, buttonY + 9f, 5,
+                new Color(235, 245, 255, alpha).getRGB());
     }
 }

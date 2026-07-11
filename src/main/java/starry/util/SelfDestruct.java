@@ -11,6 +11,34 @@ import net.minecraft.client.MinecraftClient;
 import java.lang.reflect.Field;
 
 public class SelfDestruct {
+    private static boolean sessionDisabled;
+
+    public static boolean isSessionDisabled() {
+        return sessionDisabled;
+    }
+
+    /** Disables all client behavior until the game process is restarted. */
+    public static void disableForSession() {
+        if (sessionDisabled) return;
+        sessionDisabled = true;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Initialization initialization = Initialization.getInstance();
+        Manager manager = initialization == null ? null : initialization.getManager();
+        if (manager != null && manager.getModuleRepository() != null) {
+            for (ModuleStructure module : manager.getModuleRepository().allModules()) {
+                if (module.isState()) module.setState(false);
+            }
+        }
+
+        // Remove module switchers, macros, waypoints, HUD helpers, and every other client listener.
+        starry.events.api.EventManager.cleanMap(false);
+
+        if (mc.currentScreen instanceof ClickGui) {
+            ClickGui.INSTANCE.close();
+            mc.setScreen(null);
+        }
+    }
 
     public static void destruct() {
         MinecraftClient mc = MinecraftClient.getInstance();

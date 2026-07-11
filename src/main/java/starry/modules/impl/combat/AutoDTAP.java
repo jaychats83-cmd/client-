@@ -7,6 +7,7 @@ import net.minecraft.entity.decoration.EndCrystalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
@@ -28,6 +29,7 @@ public class AutoDTAP extends ModuleStructure {
     BooleanSetting autoSwitch = new BooleanSetting("Auto Switch", "").setValue(true);
     BooleanSetting swing = new BooleanSetting("Swing", "").setValue(true);
     BooleanSetting restoreSlot = new BooleanSetting("Restore Slot", "").setValue(true);
+    BooleanSetting silentAim = new BooleanSetting("Silent Aim", "Keep your camera still while other players see placement-facing head rotations").setValue(true);
 
     PlayerEntity target;
     BlockPos obsidianPos;
@@ -38,7 +40,7 @@ public class AutoDTAP extends ModuleStructure {
 
     public AutoDTAP() {
         super("Auto DTAP", "Hit, place obsidian, place crystal, and break it for a CPVP double tap", ModuleCategory.CPVP);
-        settings(stepDelay, range, autoSwitch, swing, restoreSlot);
+        settings(stepDelay, range, autoSwitch, swing, restoreSlot, silentAim);
     }
 
     @Override
@@ -160,6 +162,7 @@ public class AutoDTAP extends ModuleStructure {
     private boolean placeBlock(BlockPos pos) {
         BlockHitResult hit = neighborHit(pos);
         if (hit == null) return false;
+        aimAt(hit.getPos());
         var result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
         if (result.isAccepted() && swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
         return result.isAccepted();
@@ -167,6 +170,7 @@ public class AutoDTAP extends ModuleStructure {
 
     private boolean placeCrystal(BlockPos obsidian) {
         BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(obsidian).add(0, 0.5, 0), Direction.UP, obsidian, false);
+        aimAt(hit.getPos());
         var result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
         if (result.isAccepted() && swing.isValue()) mc.player.swingHand(Hand.MAIN_HAND);
         return result.isAccepted();
@@ -214,5 +218,17 @@ public class AutoDTAP extends ModuleStructure {
         stage = 0;
         lastStageTime = 0;
         originalSlot = -1;
+    }
+
+    private void aimAt(Vec3d targetPos) {
+        if (!silentAim.isValue() || mc.getNetworkHandler() == null) return;
+        double x = targetPos.x - mc.player.getX();
+        double y = targetPos.y - mc.player.getEyeY();
+        double z = targetPos.z - mc.player.getZ();
+        double horizontal = Math.sqrt(x * x + z * z);
+        float yaw = (float) Math.toDegrees(Math.atan2(-x, z));
+        float pitch = Math.max(-90.0F, Math.min(90.0F, (float) Math.toDegrees(-Math.atan2(y, horizontal))));
+        mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(
+                yaw, pitch, mc.player.isOnGround(), mc.player.horizontalCollision));
     }
 }

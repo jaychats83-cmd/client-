@@ -14,8 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import starry.events.api.EventManager;
 import starry.events.impl.KeyEvent;
 import starry.screens.clickgui.ClickGui;
-import starry.util.config.impl.bind.BindConfig;
-
+import starry.util.SelfDestruct;
 @Mixin(Keyboard.class)
 public class KeyboardMixin {
 
@@ -27,7 +26,7 @@ public class KeyboardMixin {
     private void onKey(long window, int action, KeyInput input, CallbackInfo ci) {
         if (input.key() != GLFW.GLFW_KEY_UNKNOWN && window == client.getWindow().getHandle()) {
 
-            if (action == 0 && input.key() == BindConfig.getInstance().getBindKey() && canOpenClickGui()) {
+            if (action == 0 && input.key() == ClickGui.getClickGuiKey() && canOpenClickGui()) {
                 ClickGui.INSTANCE.openGui();
             }
 
@@ -36,6 +35,7 @@ public class KeyboardMixin {
     }
 
     private boolean canOpenClickGui() {
+        if (SelfDestruct.isSessionDisabled()) return false;
         if (client.world == null || client.player == null) return false;
         if (client.currentScreen != null) return false;
         return true;
