@@ -29,8 +29,6 @@ import starry.util.render.Render2D;
 import starry.util.render.shader.Scissor;
 import starry.util.render.gif.GifRender;
 import starry.util.render.font.Fonts;
-import starry.util.ColorUtil;
-import starry.util.theme.Theme;
 import starry.util.theme.ThemeManager;
 
 import java.awt.*;
@@ -281,13 +279,12 @@ public class ClickGui extends Screen implements IMinecraft {
             float scale = (float) FIXED_GUI_SCALE / guiScale;
             double mx = click.x() / scale, my = click.y() / scale;
             float[] bg = calculateBackground(scale);
-            float modalX = bg[0] + 90f, modalY = bg[1] + 71f;
-            float buttonY = modalY + 70f;
-            if (click.button() == 0 && my >= buttonY && my <= buttonY + 24f) {
-                if (mx >= modalX + 12f && mx <= modalX + 104f) {
+            float panelX = bg[0] + 92f, panelY = bg[1] + 38f;
+            if (click.button() == 0 && mx >= panelX + 10f && mx <= panelX + 288f) {
+                if (my >= panelY + 54f && my <= panelY + 102f) {
                     destructChoiceOpen = false;
                     SelfDestruct.destruct();
-                } else if (mx >= modalX + 116f && mx <= modalX + 208f) {
+                } else if (my >= panelY + 112f && my <= panelY + 160f) {
                     destructChoiceOpen = false;
                     SelfDestruct.disableForSession();
                 }
@@ -638,39 +635,45 @@ public class ClickGui extends Screen implements IMinecraft {
     }
 
     private void renderDestructChoices(float bgX, float bgY, float mouseX, float mouseY, float alphaMultiplier) {
-        Theme theme = ThemeManager.getTheme();
-        float x = bgX + 90f, y = bgY + 71f, width = 220f, height = 108f;
+        float x = bgX + 92f, y = bgY + 38f, width = 298f, height = 204f;
+        int panelAlpha = (int) (15 * alphaMultiplier);
+        int outlineAlpha = (int) (215 * alphaMultiplier);
+        int textAlpha = (int) (255 * alphaMultiplier);
+        int secondaryAlpha = (int) (155 * alphaMultiplier);
         Render2D.rect(bgX, bgY, BackgroundComponent.BG_WIDTH, BackgroundComponent.BG_HEIGHT,
                 new Color(0, 0, 0, (int) (ThemeManager.getSelfDestructDim() * alphaMultiplier)).getRGB(), 15);
-        Render2D.rect(x, y, width, height, ColorUtil.multAlpha(theme.panelBg, alphaMultiplier), 7);
-        Render2D.outline(x, y, width, height, 0.7f, ColorUtil.multAlpha(theme.outline, alphaMultiplier), 7);
-        Render2D.rect(x, y, 3f, height, ColorUtil.multAlpha(theme.accent, alphaMultiplier), 7);
+        Render2D.rect(x, y, width, height, new Color(64, 64, 64, panelAlpha).getRGB(), 6);
+        Render2D.outline(x, y, width, height, 0.5f, new Color(55, 55, 55, outlineAlpha).getRGB(), 6);
 
-        Render2D.rect(x + 13, y + 13, 22, 22, ColorUtil.multAlpha(theme.panelBg2, alphaMultiplier), 5);
-        Render2D.outline(x + 13, y + 13, 22, 22, 0.7f, ColorUtil.multAlpha(theme.accent, alphaMultiplier), 5);
-        Fonts.BOLD.drawCentered("!", x + 24f, y + 21f, 7, ColorUtil.multAlpha(theme.accent, alphaMultiplier));
-        Fonts.BOLD.draw("Self Destruct", x + 43f, y + 13f, 7.5f, ColorUtil.multAlpha(theme.text, alphaMultiplier));
-        Fonts.REGULAR.draw("Choose a shutdown mode", x + 43f, y + 26f, 5f, ColorUtil.multAlpha(theme.text2, alphaMultiplier));
+        Fonts.BOLD.draw("Self Destruct", x + 10f, y + 8f, 7f, new Color(245, 245, 245, textAlpha).getRGB());
+        Fonts.REGULAR.draw("Choose how the client should be disabled", x + 10f, y + 24f, 5f,
+                new Color(155, 155, 155, secondaryAlpha).getRGB());
+        Render2D.rect(x + 10f, y + 42f, width - 20f, 0.5f,
+                new Color(55, 55, 55, outlineAlpha).getRGB(), 0);
 
-        if (ThemeManager.isSelfDestructDetails()) {
-            Fonts.REGULAR.draw("Full removes data  •  Session lasts until restart", x + 13f, y + 47f, 4.6f,
-                    ColorUtil.multAlpha(theme.text2, alphaMultiplier));
+        renderDestructOption(x + 10f, y + 54f, width - 20f, 48f, mouseX, mouseY,
+                "Full Destruct", ThemeManager.isSelfDestructDetails() ? "Disable modules and clear client configuration data" : null,
+                alphaMultiplier);
+        renderDestructOption(x + 10f, y + 112f, width - 20f, 48f, mouseX, mouseY,
+                "Disable Session", ThemeManager.isSelfDestructDetails() ? "Disable the client until Minecraft is restarted" : null,
+                alphaMultiplier);
+
+        Fonts.REGULAR.drawCentered("Click an option to continue", x + width / 2f, y + 181f, 4.8f,
+                new Color(130, 130, 130, secondaryAlpha).getRGB());
+    }
+
+    private void renderDestructOption(float x, float y, float width, float height, float mouseX, float mouseY,
+                                      String title, String description, float alphaMultiplier) {
+        boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
+        int fillAlpha = (int) ((hovered ? 42 : 25) * alphaMultiplier);
+        int outlineAlpha = (int) ((hovered ? 150 : 95) * alphaMultiplier);
+        Render2D.rect(x, y, width, height, new Color(64, 64, 64, fillAlpha).getRGB(), 5);
+        Render2D.outline(x, y, width, height, 0.5f, new Color(70, 70, 70, outlineAlpha).getRGB(), 5);
+        Fonts.BOLD.draw(title, x + 10f, y + (description == null ? 19f : 11f), 6f,
+                new Color(225, 225, 225, (int) (255 * alphaMultiplier)).getRGB());
+        if (description != null) {
+            Fonts.REGULAR.draw(description, x + 10f, y + 27f, 4.8f,
+                    new Color(145, 145, 145, (int) (210 * alphaMultiplier)).getRGB());
         }
-
-        float buttonY = y + 70f;
-        boolean fullHover = mouseX >= x + 12 && mouseX <= x + 104 && mouseY >= buttonY && mouseY <= buttonY + 24;
-        boolean sessionHover = mouseX >= x + 116 && mouseX <= x + 208 && mouseY >= buttonY && mouseY <= buttonY + 24;
-        String style = ThemeManager.getSelfDestructStyle();
-        int fullColor = style.equals("Minimal") ? theme.panelBg2 : fullHover ? 0xFFD95662 : 0xFFB63F4A;
-        int sessionColor = style.equals("Danger") ? (sessionHover ? 0xFFD79A42 : 0xFFAD7630)
-                : style.equals("Minimal") ? theme.panelBg2 : sessionHover ? ColorUtil.lightenColor(theme.accent, 1.15f) : theme.accent;
-        Render2D.rect(x + 12f, buttonY, 92f, 24f, ColorUtil.multAlpha(fullColor, alphaMultiplier), 5);
-        Render2D.rect(x + 116f, buttonY, 92f, 24f, ColorUtil.multAlpha(sessionColor, alphaMultiplier), 5);
-        if (style.equals("Minimal")) {
-            Render2D.outline(x + 12f, buttonY, 92f, 24f, 0.7f, ColorUtil.multAlpha(0xFFB63F4A, alphaMultiplier), 5);
-            Render2D.outline(x + 116f, buttonY, 92f, 24f, 0.7f, ColorUtil.multAlpha(theme.accent, alphaMultiplier), 5);
-        }
-        Fonts.BOLD.drawCentered("Full Destruct", x + 58f, buttonY + 9f, 5, ColorUtil.multAlpha(theme.text, alphaMultiplier));
-        Fonts.BOLD.drawCentered("Disable Session", x + 162f, buttonY + 9f, 5, ColorUtil.multAlpha(theme.text, alphaMultiplier));
     }
 }
