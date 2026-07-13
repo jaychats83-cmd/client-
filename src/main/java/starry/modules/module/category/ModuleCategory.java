@@ -9,6 +9,7 @@ public enum ModuleCategory {
     COMBAT("Combat"),
     CPVP("CPVP"),
     ESP("ESP"),
+    EXTRAS("Extras"),
     MOVEMENT("Movement"),
     RENDER("Render"),
     PLAYER("Player"),

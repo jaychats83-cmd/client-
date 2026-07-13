@@ -7,7 +7,6 @@ import net.minecraft.client.gui.screen.ChatScreen;
 import starry.Initialization;
 import starry.util.ColorUtil;
 import starry.util.animations.SweepAnim;
-import starry.util.config.impl.drag.DragConfig;
 import starry.util.render.Render2D;
 
 import java.util.HashMap;
@@ -37,7 +36,6 @@ public class Drag {
 
         if (!isChatScreen) {
             if (draggingElement != null) {
-                DragConfig.getInstance().save();
                 draggingElement = null;
             }
             sweepAnimations.clear();
@@ -125,14 +123,12 @@ public class Drag {
 
     public static void onMouseRelease(Click click) {
         if (click.button() == 0 && draggingElement != null) {
-            DragConfig.getInstance().save();
             draggingElement = null;
         }
     }
 
     public static void resetDragging() {
         if (draggingElement != null) {
-            DragConfig.getInstance().save();
             draggingElement = null;
         }
         sweepAnimations.clear();

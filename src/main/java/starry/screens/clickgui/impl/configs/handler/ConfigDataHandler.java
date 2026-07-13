@@ -4,8 +4,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import starry.util.config.cloud.CloudConfigEntry;
+import starry.util.config.cloud.CloudConfigManager;
 import starry.util.config.impl.ConfigSerializer;
-import starry.util.config.impl.LocalConfigManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +31,8 @@ public class ConfigDataHandler {
     private float scrollTopFade = 0f;
     private float scrollBottomFade = 0f;
 
-    private final LocalConfigManager local = new LocalConfigManager();
+    private final CloudConfigManager cloud = new CloudConfigManager();
+    private String cachedLaunchConfigId;
 
     public ConfigDataHandler(ConfigAnimationHandler animationHandler) {
         this.animationHandler = animationHandler;
@@ -43,7 +44,7 @@ public class ConfigDataHandler {
 
     public void refreshConfigs() {
         List<CloudConfigEntry> oldEntries = entries;
-        List<CloudConfigEntry> newEntries = local.fetchAll();
+        List<CloudConfigEntry> newEntries = cloud.fetchAll();
 
         for (CloudConfigEntry e : newEntries) {
             boolean existed = false;
@@ -64,6 +65,7 @@ public class ConfigDataHandler {
         }
 
         entries = newEntries;
+        cachedLaunchConfigId = cloud.getLaunchConfigId();
     }
 
     public void updateScroll(float deltaTime) {
@@ -97,7 +99,7 @@ public class ConfigDataHandler {
         isLoading = true;
         CompletableFuture.runAsync(() -> {
             String data = new ConfigSerializer().serialize();
-            CloudConfigEntry created = local.create(name, data);
+            CloudConfigEntry created = cloud.create(name, data);
             if (created != null) {
                 refreshConfigs();
             }
@@ -108,7 +110,7 @@ public class ConfigDataHandler {
     public void loadConfig(String id) {
         isLoading = true;
         CompletableFuture.runAsync(() -> {
-            CloudConfigEntry entry = local.findById(id);
+            CloudConfigEntry entry = cloud.findById(id);
             if (entry != null && entry.data != null) {
                 new ConfigSerializer().deserialize(entry.data);
             }
@@ -120,7 +122,7 @@ public class ConfigDataHandler {
         isLoading = true;
         CompletableFuture.runAsync(() -> {
             String data = new ConfigSerializer().serialize();
-            local.update(id, data);
+            cloud.update(id, data);
             isLoading = false;
         });
     }
@@ -128,7 +130,7 @@ public class ConfigDataHandler {
     public void deleteConfig(String id) {
         isLoading = true;
         CompletableFuture.runAsync(() -> {
-            local.delete(id);
+            cloud.delete(id);
             if (selectedEntry != null && selectedEntry.id.equals(id)) {
                 selectedEntry = null;
             }
@@ -140,7 +142,7 @@ public class ConfigDataHandler {
     public void importByCode(String code) {
         isLoading = true;
         CompletableFuture.runAsync(() -> {
-            CloudConfigEntry entry = local.importFile(code.trim());
+            CloudConfigEntry entry = cloud.importFile(code.trim());
             if (entry != null && entry.data != null) {
                 new ConfigSerializer().deserialize(entry.data);
                 refreshConfigs();
@@ -157,34 +159,36 @@ public class ConfigDataHandler {
     }
 
     public String getLaunchConfigId() {
-        return local.getLaunchConfigId();
+        return cachedLaunchConfigId;
     }
 
     public boolean isLaunchConfig(String id) {
-        return local.getLaunchConfigId() != null && local.getLaunchConfigId().equals(id);
+        return cachedLaunchConfigId != null && cachedLaunchConfigId.equals(id);
     }
 
     public void setLaunchConfig(String id) {
+        cachedLaunchConfigId = id;
         isLoading = true;
         CompletableFuture.runAsync(() -> {
-            local.setLaunchConfig(id);
+            cloud.setLaunchConfig(id);
             isLoading = false;
         });
     }
 
     public void clearLaunchConfig() {
+        cachedLaunchConfigId = null;
         isLoading = true;
         CompletableFuture.runAsync(() -> {
-            local.clearLaunchConfig();
+            cloud.clearLaunchConfig();
             isLoading = false;
         });
     }
 
     public void loadLaunchConfig() {
-        String id = local.getLaunchConfigId();
+        String id = cachedLaunchConfigId;
         if (id != null) {
             CompletableFuture.runAsync(() -> {
-                CloudConfigEntry entry = local.findById(id);
+                CloudConfigEntry entry = cloud.findById(id);
                 if (entry != null && entry.data != null) {
                     new ConfigSerializer().deserialize(entry.data);
                 }

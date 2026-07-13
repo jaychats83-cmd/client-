@@ -17,10 +17,10 @@ public class CategoryRenderer {
     private static final String[] MAIN_CATEGORY_ICONS = {"a", "f", "g", "b", "c", "d", "e"};
 
     private static final ModuleCategory[] EXTRA_CATEGORIES = {
-            ModuleCategory.VISUALS
+            ModuleCategory.VISUALS, ModuleCategory.EXTRAS
     };
-    private static final String[] EXTRA_CATEGORY_NAMES = {"Visuals"};
-    private static final String[] EXTRA_CATEGORY_ICONS = {"h"};
+    private static final String[] EXTRA_CATEGORY_NAMES = {"Visuals", "Extras"};
+    private static final String[] EXTRA_CATEGORY_ICONS = {"h", "e"};
 
     private final Map<ModuleCategory, Float> categoryAnimations = new HashMap<>();
 
