@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import starry.util.StreamMode;
 
 public final class EventManager {
     private static final Map<Class<? extends Event>, List<MethodData>> REGISTRY_MAP = new HashMap<>();
@@ -106,6 +107,7 @@ public final class EventManager {
     }
 
     public static Event callEvent(final Event event) {
+        if (StreamMode.shouldSuppress(event)) return event;
         List<MethodData> dataList = REGISTRY_MAP.get(event.getClass());
 
         if (dataList != null) {

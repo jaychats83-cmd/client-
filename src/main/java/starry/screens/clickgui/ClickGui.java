@@ -636,13 +636,13 @@ public class ClickGui extends Screen implements IMinecraft {
 
     private void renderDestructChoices(float bgX, float bgY, float mouseX, float mouseY, float alphaMultiplier) {
         float x = bgX + 92f, y = bgY + 38f, width = 298f, height = 204f;
-        int panelAlpha = (int) (15 * alphaMultiplier);
+        int panelAlpha = (int) (255 * alphaMultiplier);
         int outlineAlpha = (int) (215 * alphaMultiplier);
         int textAlpha = (int) (255 * alphaMultiplier);
         int secondaryAlpha = (int) (155 * alphaMultiplier);
         Render2D.rect(bgX, bgY, BackgroundComponent.BG_WIDTH, BackgroundComponent.BG_HEIGHT,
                 new Color(0, 0, 0, (int) (ThemeManager.getSelfDestructDim() * alphaMultiplier)).getRGB(), 15);
-        Render2D.rect(x, y, width, height, new Color(64, 64, 64, panelAlpha).getRGB(), 6);
+        Render2D.rect(x, y, width, height, new Color(26, 26, 26, panelAlpha).getRGB(), 6);
         Render2D.outline(x, y, width, height, 0.5f, new Color(55, 55, 55, outlineAlpha).getRGB(), 6);
 
         Fonts.BOLD.draw("Self Destruct", x + 10f, y + 8f, 7f, new Color(245, 245, 245, textAlpha).getRGB());

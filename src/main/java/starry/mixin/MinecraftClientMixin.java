@@ -26,6 +26,7 @@ import starry.events.impl.SetScreenEvent;
 import starry.screens.clickgui.ClickGui;
 import starry.util.render.font.FontRenderer;
 import starry.util.session.SessionChanger;
+import starry.util.StreamMode;
 
 import static starry.IMinecraft.mc;
 import starry.modules.impl.render.*;
@@ -86,6 +87,7 @@ public abstract class MinecraftClientMixin {
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
+        StreamMode.tick();
         if (mc.player == null || mc.world == null) return;
 
         EventManager.callEvent(new TickEvent());
