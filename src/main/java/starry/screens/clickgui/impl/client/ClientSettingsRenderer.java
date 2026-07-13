@@ -11,6 +11,7 @@ import starry.util.theme.ThemeManager;
 
 import java.awt.*;
 import starry.util.string.StringHelper;
+import starry.util.StreamMode;
 
 public class ClientSettingsRenderer implements IMinecraft {
     public static final float PANEL_X = 92f;
@@ -89,6 +90,8 @@ public class ClientSettingsRenderer implements IMinecraft {
         drawOption("Backdrop", ThemeManager.getSelfDestructDimName(), x, sy, textColor);
         sy += 18;
         drawOption("Detail Text", ThemeManager.isSelfDestructDetails() ? "Shown" : "Hidden", x, sy, textColor);
+        sy += 24;
+        drawOption("Stream Mode", StreamMode.isEnabled() ? "Enabled" : "Disabled", x, sy, textColor);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button, float bgX, float bgY) {
@@ -131,6 +134,10 @@ public class ClientSettingsRenderer implements IMinecraft {
         }
         if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 154 && mouseY <= y + 176) {
             ThemeManager.toggleSelfDestructDetails();
+            return true;
+        }
+        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 178 && mouseY <= y + 202) {
+            StreamMode.setEnabled(!StreamMode.isEnabled());
             return true;
         }
 

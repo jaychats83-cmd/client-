@@ -25,6 +25,7 @@ import starry.events.impl.HotbarItemRenderEvent;
 import starry.screens.clickgui.ClickGui;
 import starry.util.render.Render2D;
 import starry.modules.impl.render.*;
+import starry.util.StreamMode;
 
 @Mixin(InGameHud.class)
 public abstract class InGameHudMixin implements IMinecraft {
@@ -92,6 +93,7 @@ public abstract class InGameHudMixin implements IMinecraft {
 
     @Inject(method = "render", at = @At("TAIL"))
     public void onRenderCustomHud(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+        if (StreamMode.isEnabled()) return;
         if (this.client.options.hudHidden) return;
         if (client.world == null || client.player == null) return;
         if (client.getOverlay() != null) return;
