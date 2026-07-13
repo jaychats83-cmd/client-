@@ -15,7 +15,6 @@ public class ThemeManager {
     private static Theme currentTheme = Theme.DARK;
     private static int selfDestructDim = 175;
     private static boolean selfDestructDetails = true;
-    private static boolean streamModeEnabled;
 
     public static void load() {
         try {
@@ -27,7 +26,6 @@ public class ThemeManager {
                     for (Theme t : Theme.PRESETS) if (t.name.equalsIgnoreCase(name)) currentTheme = t;
                     if (obj.has("selfDestructDim")) selfDestructDim = Math.max(0, Math.min(255, obj.get("selfDestructDim").getAsInt()));
                     if (obj.has("selfDestructDetails")) selfDestructDetails = obj.get("selfDestructDetails").getAsBoolean();
-                    if (obj.has("streamMode")) streamModeEnabled = obj.get("streamMode").getAsBoolean();
                     return;
                 }
             }
@@ -46,7 +44,6 @@ public class ThemeManager {
                 obj.addProperty("theme", currentTheme.name);
                 obj.addProperty("selfDestructDim", selfDestructDim);
                 obj.addProperty("selfDestructDetails", selfDestructDetails);
-                obj.addProperty("streamMode", streamModeEnabled);
                 GSON.toJson(obj, w);
             }
         } catch (Exception e) {
@@ -91,13 +88,6 @@ public class ThemeManager {
 
     public static void toggleSelfDestructDetails() {
         selfDestructDetails = !selfDestructDetails;
-        save();
-    }
-
-    public static boolean isStreamModeEnabled() { return streamModeEnabled; }
-
-    public static void setStreamModeEnabled(boolean enabled) {
-        streamModeEnabled = enabled;
         save();
     }
 

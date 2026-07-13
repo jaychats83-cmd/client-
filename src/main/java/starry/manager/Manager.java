@@ -18,7 +18,6 @@ import starry.util.repository.macro.MacroRepository;
 import starry.util.repository.way.WayRepository;
 import starry.util.theme.ThemeManager;
 import starry.util.tps.TPSCalculate;
-import starry.util.StreamMode;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -59,8 +58,6 @@ public class Manager {
         moduleRepository.setup();
         moduleProvider = new ModuleProvider(moduleRepository.modules());
         moduleSwitcher = new ModuleSwitcher(moduleRepository.modules(), eventManager);
-        StreamMode.initialize();
-
         loadLaunchConfig();
     }
 

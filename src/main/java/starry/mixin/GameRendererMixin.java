@@ -35,7 +35,6 @@ import starry.events.impl.WorldRenderEvent;
 import starry.screens.clickgui.ClickGui;
 import starry.util.render.Render3D;
 import starry.modules.impl.render.*;
-import starry.util.StreamMode;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
@@ -155,7 +154,7 @@ public abstract class GameRendererMixin {
         DrawContext context = new DrawContext(client, guiState, mouseX, mouseY);
 
         k9rp40 hud = k9rp40.getInstance();
-        if (!StreamMode.isEnabled() && hud != null && hud.isState()) {
+        if (hud != null && hud.isState()) {
             boolean isChatScreen = client.currentScreen instanceof ChatScreen;
             Drag.onDraw(context, mouseX, mouseY, tickDelta, isChatScreen);
         }
