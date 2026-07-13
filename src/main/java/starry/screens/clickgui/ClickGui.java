@@ -642,8 +642,8 @@ public class ClickGui extends Screen implements IMinecraft {
         int secondaryAlpha = (int) (155 * alphaMultiplier);
         Render2D.rect(bgX, bgY, BackgroundComponent.BG_WIDTH, BackgroundComponent.BG_HEIGHT,
                 new Color(0, 0, 0, (int) (ThemeManager.getSelfDestructDim() * alphaMultiplier)).getRGB(), 15);
-        Render2D.rect(x, y, width, height, new Color(26, 26, 26, panelAlpha).getRGB(), 6);
-        Render2D.outline(x, y, width, height, 0.5f, new Color(55, 55, 55, outlineAlpha).getRGB(), 6);
+        Render2D.rect(x, y, width, height, new Color(18, 18, 18, panelAlpha).getRGB(), 6);
+        Render2D.outline(x, y, width, height, 0.5f, new Color(48, 48, 48, outlineAlpha).getRGB(), 6);
 
         Fonts.BOLD.draw("Self Destruct", x + 10f, y + 8f, 7f, new Color(245, 245, 245, textAlpha).getRGB());
         Fonts.REGULAR.draw("Choose how the client should be disabled", x + 10f, y + 24f, 5f,
@@ -665,10 +665,11 @@ public class ClickGui extends Screen implements IMinecraft {
     private void renderDestructOption(float x, float y, float width, float height, float mouseX, float mouseY,
                                       String title, String description, float alphaMultiplier) {
         boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-        int fillAlpha = (int) ((hovered ? 42 : 25) * alphaMultiplier);
+        int fillAlpha = (int) (255 * alphaMultiplier);
         int outlineAlpha = (int) ((hovered ? 150 : 95) * alphaMultiplier);
-        Render2D.rect(x, y, width, height, new Color(64, 64, 64, fillAlpha).getRGB(), 5);
-        Render2D.outline(x, y, width, height, 0.5f, new Color(70, 70, 70, outlineAlpha).getRGB(), 5);
+        int shade = hovered ? 30 : 24;
+        Render2D.rect(x, y, width, height, new Color(shade, shade, shade, fillAlpha).getRGB(), 5);
+        Render2D.outline(x, y, width, height, 0.5f, new Color(52, 52, 52, outlineAlpha).getRGB(), 5);
         Fonts.BOLD.draw(title, x + 10f, y + (description == null ? 19f : 11f), 6f,
                 new Color(225, 225, 225, (int) (255 * alphaMultiplier)).getRGB());
         if (description != null) {
