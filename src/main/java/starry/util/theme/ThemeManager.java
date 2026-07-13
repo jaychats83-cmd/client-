@@ -13,7 +13,6 @@ import java.nio.file.Paths;
 public class ThemeManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Theme currentTheme = Theme.DARK;
-    private static String selfDestructStyle = "Themed";
     private static int selfDestructDim = 175;
     private static boolean selfDestructDetails = true;
 
@@ -25,10 +24,6 @@ public class ThemeManager {
                     JsonObject obj = GSON.fromJson(r, JsonObject.class);
                     String name = obj.has("theme") ? obj.get("theme").getAsString() : "Dark";
                     for (Theme t : Theme.PRESETS) if (t.name.equalsIgnoreCase(name)) currentTheme = t;
-                    if (obj.has("selfDestructStyle")) {
-                        String style = obj.get("selfDestructStyle").getAsString();
-                        if (style.equals("Themed") || style.equals("Danger") || style.equals("Minimal")) selfDestructStyle = style;
-                    }
                     if (obj.has("selfDestructDim")) selfDestructDim = Math.max(0, Math.min(255, obj.get("selfDestructDim").getAsInt()));
                     if (obj.has("selfDestructDetails")) selfDestructDetails = obj.get("selfDestructDetails").getAsBoolean();
                     return;
@@ -47,7 +42,6 @@ public class ThemeManager {
             try (BufferedWriter w = Files.newBufferedWriter(configPath)) {
                 JsonObject obj = new JsonObject();
                 obj.addProperty("theme", currentTheme.name);
-                obj.addProperty("selfDestructStyle", selfDestructStyle);
                 obj.addProperty("selfDestructDim", selfDestructDim);
                 obj.addProperty("selfDestructDetails", selfDestructDetails);
                 GSON.toJson(obj, w);
@@ -77,17 +71,6 @@ public class ThemeManager {
         if (index >= 0 && index < Theme.PRESETS.length) {
             setTheme(Theme.PRESETS[index]);
         }
-    }
-
-    public static String getSelfDestructStyle() { return selfDestructStyle; }
-
-    public static void cycleSelfDestructStyle() {
-        selfDestructStyle = switch (selfDestructStyle) {
-            case "Themed" -> "Danger";
-            case "Danger" -> "Minimal";
-            default -> "Themed";
-        };
-        save();
     }
 
     public static int getSelfDestructDim() { return selfDestructDim; }

@@ -86,8 +86,6 @@ public class ClientSettingsRenderer implements IMinecraft {
         Fonts.BOLD.draw("Self Destruct Dialog", x + 10, sy, 6, titleColor);
 
         sy += 20;
-        drawOption("Style", ThemeManager.getSelfDestructStyle(), x, sy, textColor);
-        sy += 18;
         drawOption("Backdrop", ThemeManager.getSelfDestructDimName(), x, sy, textColor);
         sy += 18;
         drawOption("Detail Text", ThemeManager.isSelfDestructDetails() ? "Shown" : "Hidden", x, sy, textColor);
@@ -128,14 +126,10 @@ public class ClientSettingsRenderer implements IMinecraft {
 
 
         if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 136 && mouseY <= y + 154) {
-            ThemeManager.cycleSelfDestructStyle();
-            return true;
-        }
-        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 154 && mouseY <= y + 172) {
             ThemeManager.cycleSelfDestructDim();
             return true;
         }
-        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 172 && mouseY <= y + 194) {
+        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 154 && mouseY <= y + 176) {
             ThemeManager.toggleSelfDestructDetails();
             return true;
         }
