@@ -29,6 +29,9 @@ import starry.util.render.Render2D;
 import starry.util.render.shader.Scissor;
 import starry.util.render.gif.GifRender;
 import starry.util.render.font.Fonts;
+import starry.util.ColorUtil;
+import starry.util.theme.Theme;
+import starry.util.theme.ThemeManager;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -253,7 +256,7 @@ public class ClickGui extends Screen implements IMinecraft {
 
         clientSettingsRenderer.render(context, bgX, bgY, mx, my, delta, FIXED_GUI_SCALE, alphaMultiplier);
 
-        if (destructChoiceOpen) renderDestructChoices(bgX, bgY, alphaMultiplier);
+        if (destructChoiceOpen) renderDestructChoices(bgX, bgY, mx, my, alphaMultiplier);
 
         context.getMatrices().popMatrix();
 
@@ -278,13 +281,13 @@ public class ClickGui extends Screen implements IMinecraft {
             float scale = (float) FIXED_GUI_SCALE / guiScale;
             double mx = click.x() / scale, my = click.y() / scale;
             float[] bg = calculateBackground(scale);
-            float modalX = bg[0] + 100f, modalY = bg[1] + 78f;
-            float buttonY = modalY + 55f;
+            float modalX = bg[0] + 90f, modalY = bg[1] + 71f;
+            float buttonY = modalY + 70f;
             if (click.button() == 0 && my >= buttonY && my <= buttonY + 24f) {
-                if (mx >= modalX + 10f && mx <= modalX + 95f) {
+                if (mx >= modalX + 12f && mx <= modalX + 104f) {
                     destructChoiceOpen = false;
                     SelfDestruct.destruct();
-                } else if (mx >= modalX + 105f && mx <= modalX + 190f) {
+                } else if (mx >= modalX + 116f && mx <= modalX + 208f) {
                     destructChoiceOpen = false;
                     SelfDestruct.disableForSession();
                 }
@@ -634,25 +637,40 @@ public class ClickGui extends Screen implements IMinecraft {
         }
     }
 
-    private void renderDestructChoices(float bgX, float bgY, float alphaMultiplier) {
-        int alpha = (int) (255 * alphaMultiplier);
-        float x = bgX + 100f, y = bgY + 78f, width = 200f, height = 94f;
+    private void renderDestructChoices(float bgX, float bgY, float mouseX, float mouseY, float alphaMultiplier) {
+        Theme theme = ThemeManager.getTheme();
+        float x = bgX + 90f, y = bgY + 71f, width = 220f, height = 108f;
         Render2D.rect(bgX, bgY, BackgroundComponent.BG_WIDTH, BackgroundComponent.BG_HEIGHT,
-                new Color(0, 0, 0, (int) (175 * alphaMultiplier)).getRGB(), 15);
-        Render2D.rect(x, y, width, height, new Color(16, 16, 18, alpha).getRGB(), 8);
-        Render2D.outline(x, y, width, height, 0.7f, new Color(75, 75, 82, alpha).getRGB(), 8);
+                new Color(0, 0, 0, (int) (ThemeManager.getSelfDestructDim() * alphaMultiplier)).getRGB(), 15);
+        Render2D.rect(x, y, width, height, ColorUtil.multAlpha(theme.panelBg, alphaMultiplier), 7);
+        Render2D.outline(x, y, width, height, 0.7f, ColorUtil.multAlpha(theme.outline, alphaMultiplier), 7);
+        Render2D.rect(x, y, 3f, height, ColorUtil.multAlpha(theme.accent, alphaMultiplier), 7);
 
-        Fonts.BOLD.drawCentered("Self Destruct", x + width / 2f, y + 14f, 8,
-                new Color(245, 245, 248, alpha).getRGB());
-        Fonts.REGULAR.drawCentered("Choose how to disable the client", x + width / 2f, y + 31f, 5,
-                new Color(155, 155, 165, alpha).getRGB());
+        Render2D.rect(x + 13, y + 13, 22, 22, ColorUtil.multAlpha(theme.panelBg2, alphaMultiplier), 5);
+        Render2D.outline(x + 13, y + 13, 22, 22, 0.7f, ColorUtil.multAlpha(theme.accent, alphaMultiplier), 5);
+        Fonts.BOLD.drawCentered("!", x + 24f, y + 21f, 7, ColorUtil.multAlpha(theme.accent, alphaMultiplier));
+        Fonts.BOLD.draw("Self Destruct", x + 43f, y + 13f, 7.5f, ColorUtil.multAlpha(theme.text, alphaMultiplier));
+        Fonts.REGULAR.draw("Choose a shutdown mode", x + 43f, y + 26f, 5f, ColorUtil.multAlpha(theme.text2, alphaMultiplier));
 
-        float buttonY = y + 55f;
-        Render2D.rect(x + 10f, buttonY, 85f, 24f, new Color(115, 35, 42, alpha).getRGB(), 5);
-        Render2D.rect(x + 105f, buttonY, 85f, 24f, new Color(35, 78, 115, alpha).getRGB(), 5);
-        Fonts.BOLD.drawCentered("Full Destruct", x + 52.5f, buttonY + 9f, 5,
-                new Color(255, 235, 235, alpha).getRGB());
-        Fonts.BOLD.drawCentered("Disable Session", x + 147.5f, buttonY + 9f, 5,
-                new Color(235, 245, 255, alpha).getRGB());
+        if (ThemeManager.isSelfDestructDetails()) {
+            Fonts.REGULAR.draw("Full removes data  •  Session lasts until restart", x + 13f, y + 47f, 4.6f,
+                    ColorUtil.multAlpha(theme.text2, alphaMultiplier));
+        }
+
+        float buttonY = y + 70f;
+        boolean fullHover = mouseX >= x + 12 && mouseX <= x + 104 && mouseY >= buttonY && mouseY <= buttonY + 24;
+        boolean sessionHover = mouseX >= x + 116 && mouseX <= x + 208 && mouseY >= buttonY && mouseY <= buttonY + 24;
+        String style = ThemeManager.getSelfDestructStyle();
+        int fullColor = style.equals("Minimal") ? theme.panelBg2 : fullHover ? 0xFFD95662 : 0xFFB63F4A;
+        int sessionColor = style.equals("Danger") ? (sessionHover ? 0xFFD79A42 : 0xFFAD7630)
+                : style.equals("Minimal") ? theme.panelBg2 : sessionHover ? ColorUtil.lightenColor(theme.accent, 1.15f) : theme.accent;
+        Render2D.rect(x + 12f, buttonY, 92f, 24f, ColorUtil.multAlpha(fullColor, alphaMultiplier), 5);
+        Render2D.rect(x + 116f, buttonY, 92f, 24f, ColorUtil.multAlpha(sessionColor, alphaMultiplier), 5);
+        if (style.equals("Minimal")) {
+            Render2D.outline(x + 12f, buttonY, 92f, 24f, 0.7f, ColorUtil.multAlpha(0xFFB63F4A, alphaMultiplier), 5);
+            Render2D.outline(x + 116f, buttonY, 92f, 24f, 0.7f, ColorUtil.multAlpha(theme.accent, alphaMultiplier), 5);
+        }
+        Fonts.BOLD.drawCentered("Full Destruct", x + 58f, buttonY + 9f, 5, ColorUtil.multAlpha(theme.text, alphaMultiplier));
+        Fonts.BOLD.drawCentered("Disable Session", x + 162f, buttonY + 9f, 5, ColorUtil.multAlpha(theme.text, alphaMultiplier));
     }
 }

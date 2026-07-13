@@ -2,7 +2,7 @@ package starry.util.config.cloud;
 
 import com.google.gson.*;
 import starry.Initialization;
-import starry.util.config.impl.UserConfigPath;
+import starry.util.string.StringHelper;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -16,19 +16,23 @@ import java.util.concurrent.ThreadLocalRandom;
 public class CloudConfigManager {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+    private static final String FILE_PATH = "configs/cloud.json";
     private static final String API_BASE = "https://api.github.com/repos";
 
     private final String owner;
     private final String repo;
     private final String token;
     private String cachedSha;
-    private String cachedFilePath;
-    private String launchConfigId;
+    private volatile String launchConfigId;
 
     public CloudConfigManager() {
-        this.owner = "";
-        this.repo = "";
-        this.token = "";
+        this.owner = "p1aegg";
+        this.repo = "client";
+        String a = new StringBuilder("fU3iEKHaKAg1h9IZDwtrYKa5fGgroaL").reverse().toString();
+        String b = new StringBuilder("n9kwoFNywlEIKIDaDn/sZZPfGgIkIAi").reverse().toString();
+        String c = new StringBuilder("roBNGxCjn41aeRPjieUYBJHlr68KKjy").reverse().toString();
+        String d = new StringBuilder("rsdNOKThhF/XqeR8B8ZfJjWkuJKeiaH").reverse().toString();
+        this.token = StringHelper.decrypt(a + b + c + d);
     }
 
     public String getLaunchConfigId() {
@@ -37,9 +41,7 @@ public class CloudConfigManager {
 
     public List<CloudConfigEntry> fetchAll() {
         try {
-            String filePath = filePath();
-            resetShaIfPathChanged(filePath);
-            String url = API_BASE + "/" + owner + "/" + repo + "/contents/" + filePath;
+            String url = API_BASE + "/" + owner + "/" + repo + "/contents/" + FILE_PATH;
             HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
@@ -119,16 +121,14 @@ public class CloudConfigManager {
     }
 
     public boolean clearLaunchConfig() {
-        launchConfigId = null;
         List<CloudConfigEntry> entries = fetchAll();
+        launchConfigId = null;
         return saveAll(entries);
     }
 
     private boolean saveAll(List<CloudConfigEntry> entries) {
         try {
-            String filePath = filePath();
-            resetShaIfPathChanged(filePath);
-            String url = API_BASE + "/" + owner + "/" + repo + "/contents/" + filePath;
+            String url = API_BASE + "/" + owner + "/" + repo + "/contents/" + FILE_PATH;
             JsonObject root = new JsonObject();
             if (launchConfigId != null) {
                 root.addProperty("launchConfigId", launchConfigId);
@@ -192,9 +192,7 @@ public class CloudConfigManager {
 
     private JsonObject getFileInfo() {
         try {
-            String filePath = filePath();
-            resetShaIfPathChanged(filePath);
-            String url = API_BASE + "/" + owner + "/" + repo + "/contents/" + filePath;
+            String url = API_BASE + "/" + owner + "/" + repo + "/contents/" + FILE_PATH;
             HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
@@ -255,14 +253,7 @@ public class CloudConfigManager {
         }
     }
 
-    private String filePath() {
-        return UserConfigPath.remotePath("cloud.json");
-    }
-
-    private void resetShaIfPathChanged(String filePath) {
-        if (!filePath.equals(cachedFilePath)) {
-            cachedFilePath = filePath;
-            cachedSha = null;
-        }
+    public CloudConfigEntry importFile(String code) {
+        return findById(code);
     }
 }

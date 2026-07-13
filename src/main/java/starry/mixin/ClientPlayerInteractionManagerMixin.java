@@ -23,11 +23,25 @@ import starry.events.impl.ClickSlotEvent;
 import starry.events.impl.UsingItemEvent;
 import starry.modules.impl.util.NoBreakDelay;
 import starry.util.Instance;
+import starry.access.ClientPlayerInteractionAccess;
 
 @Mixin(ClientPlayerInteractionManager.class)
-public class ClientPlayerInteractionManagerMixin {
+public abstract class ClientPlayerInteractionManagerMixin implements ClientPlayerInteractionAccess {
     @Shadow
     private int blockBreakingCooldown;
+    @Shadow
+    private float currentBreakingProgress;
+    @Shadow
+    private boolean breakingBlock;
+
+    @Override
+    public float starry$getBreakingProgress() { return currentBreakingProgress; }
+
+    @Override
+    public void starry$setBreakingProgress(float progress) { currentBreakingProgress = progress; }
+
+    @Override
+    public boolean starry$isBreakingBlock() { return breakingBlock; }
 
     @Inject(method = "interactItem", at = @At(value = "RETURN"))
     public void interactItemHook(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
@@ -57,9 +71,11 @@ public class ClientPlayerInteractionManagerMixin {
         if (event.isCancelled()) cir.setReturnValue(ActionResult.PASS);
     }
 
-    @Inject(method = "updateBlockBreakingProgress", at = @At(value = "HEAD"))
+    @Inject(method = "updateBlockBreakingProgress", at = @At(value = "HEAD"), cancellable = true)
     private void injectBlockBreaking(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {
-        EventManager.callEvent(new BlockBreakingEvent(pos, direction));
+        BlockBreakingEvent event = new BlockBreakingEvent(pos, direction);
+        EventManager.callEvent(event);
+        if (event.isCancelled()) cir.setReturnValue(false);
     }
 
     @Inject(method = "updateBlockBreakingProgress", at = @At("RETURN"))

@@ -3,7 +3,6 @@ package starry.client.draggables;
 import net.minecraft.client.gui.DrawContext;
 import starry.events.impl.PacketEvent;
 import starry.screens.hud.*;
-import starry.util.config.impl.drag.DragConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +31,6 @@ public class HudManager {
         register(new Arraylist());
 
         initialized = true;
-
-        DragConfig.getInstance().load();
     }
 
     public void register(HudElement element) {
@@ -98,11 +95,9 @@ public class HudManager {
     }
 
     public void saveConfig() {
-        DragConfig.getInstance().save();
     }
 
     public void loadConfig() {
-        DragConfig.getInstance().load();
     }
 
     public List<HudElement> getElements() {

@@ -7,14 +7,8 @@ import starry.events.api.EventManager;
 import starry.modules.module.*;
 import starry.screens.clickgui.ClickGui;
 import starry.util.config.cloud.CloudConfigEntry;
+import starry.util.config.cloud.CloudConfigManager;
 import starry.util.config.impl.ConfigSerializer;
-import starry.util.config.impl.LocalConfigManager;
-import starry.util.config.impl.bind.BindConfig;
-import java.util.List;
-import starry.util.config.impl.blockesp.BlockESPConfig;
-import starry.util.config.impl.drag.DragConfig;
-import starry.util.config.impl.friend.FriendConfig;
-import starry.util.config.impl.staff.StaffConfig;
 import starry.util.modules.ModuleProvider;
 import starry.util.modules.ModuleSwitcher;
 import starry.util.render.shader.RenderCore;
@@ -24,6 +18,9 @@ import starry.util.repository.macro.MacroRepository;
 import starry.util.repository.way.WayRepository;
 import starry.util.theme.ThemeManager;
 import starry.util.tps.TPSCalculate;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  *  © 2026 Copyright starry Client 2.0
@@ -45,11 +42,6 @@ public class Manager {
     public void init() {
         MacroRepository.getInstance().init();
         WayRepository.getInstance().init();
-        BlockESPConfig.getInstance().load();
-        FriendConfig.getInstance().load();
-        StaffConfig.getInstance().load();
-        DragConfig.getInstance().load();
-        BindConfig.getInstance();
         ThemeManager.load();
 
         FontInitializer.register();
@@ -67,21 +59,25 @@ public class Manager {
         moduleProvider = new ModuleProvider(moduleRepository.modules());
         moduleSwitcher = new ModuleSwitcher(moduleRepository.modules(), eventManager);
 
-        LocalConfigManager local = new LocalConfigManager();
-        List<CloudConfigEntry> allEntries = local.fetchAll();
-        String launchId = local.getLaunchConfigId();
-        if (launchId != null) {
-            String launchIdFinal = launchId;
-            List<CloudConfigEntry> cachedEntries = allEntries;
-            new Thread(() -> {
-                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-                for (CloudConfigEntry e : cachedEntries) {
-                    if (e.id.equals(launchIdFinal) && e.data != null) {
-                        new ConfigSerializer().deserialize(e.data);
+        loadLaunchConfig();
+    }
+
+    private void loadLaunchConfig() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                CloudConfigManager cloud = new CloudConfigManager();
+                List<CloudConfigEntry> entries = cloud.fetchAll();
+                String launchId = cloud.getLaunchConfigId();
+                if (launchId == null) return;
+
+                for (CloudConfigEntry entry : entries) {
+                    if (entry.id.equals(launchId) && entry.data != null) {
+                        new ConfigSerializer().deserialize(entry.data);
                         break;
                     }
                 }
-            }, "starry-LaunchConfig").start();
-        }
+            } catch (Exception ignored) {
+            }
+        });
     }
 }

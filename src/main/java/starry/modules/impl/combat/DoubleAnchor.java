@@ -14,29 +14,26 @@ import starry.modules.module.ModuleStructure;
 import starry.modules.module.category.ModuleCategory;
 import starry.modules.module.setting.implement.BindSetting;
 import starry.modules.module.setting.implement.BooleanSetting;
+import starry.modules.module.setting.implement.MinMaxSetting;
 import starry.modules.module.setting.implement.SliderSettings;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DoubleAnchor extends ModuleStructure {
     BindSetting activateKey = new BindSetting("Activate Key", "Key that starts double anchoring").setKey(GLFW.GLFW_KEY_G);
     SliderSettings switchDelay = new SliderSettings("Switch Delay MS", "").setValue(0f).range(0f, 1000f);
     SliderSettings totemSlot = new SliderSettings("Totem Slot", "").setValue(1f).range(1f, 9f);
-    SliderSettings randomDelayMin = new SliderSettings("Random Delay Min MS", "").setValue(0f).range(0f, 2500f);
-    SliderSettings randomDelayMax = new SliderSettings("Random Delay Max MS", "").setValue(0f).range(0f, 5000f);
+    MinMaxSetting randomDelay = new MinMaxSetting("Random Delay MS", "Additional random delay").defaultValue(0, 0).range(0, 5000);
     BooleanSetting randomInteractions = new BooleanSetting("Random Interactions", "").setValue(false);
-    SliderSettings randomHitsMin = new SliderSettings("Random Hits Min", "").setValue(1f).range(1f, 4f);
-    SliderSettings randomHitsMax = new SliderSettings("Random Hits Max", "").setValue(4f).range(1f, 4f);
+    MinMaxSetting randomHits = new MinMaxSetting("Random Hits", "Interaction count per step").defaultValue(1, 4).range(1, 4);
 
-    int randomDelay;
+    int currentDelay;
     int step;
     long lastStepTime;
     boolean anchoring;
 
     public DoubleAnchor() {
         super("Double Anchor", ModuleCategory.CPVP);
-        settings(activateKey, switchDelay, totemSlot, randomDelayMin, randomDelayMax, randomInteractions, randomHitsMin, randomHitsMax);
+        settings(activateKey, switchDelay, totemSlot, randomDelay, randomInteractions, randomHits);
     }
 
     @Override
@@ -71,7 +68,7 @@ public class DoubleAnchor extends ModuleStructure {
         if (!delayPassed(delay)) {
             return;
         }
-        randomDelay = 0;
+        currentDelay = 0;
 
         switch (step) {
             case 0 -> selectItem(Items.RESPAWN_ANCHOR);
@@ -131,7 +128,7 @@ public class DoubleAnchor extends ModuleStructure {
     }
 
     private void resetDelay() {
-        randomDelay = 0;
+        currentDelay = 0;
         lastStepTime = System.currentTimeMillis();
     }
 
@@ -140,18 +137,16 @@ public class DoubleAnchor extends ModuleStructure {
     }
 
     private int currentRandomDelay() {
-        if (randomDelay == 0 && randomDelayMax.getValue() > randomDelayMin.getValue()) {
-            randomDelay = Math.max(0, randomInt(randomDelayMin.getInt(), randomDelayMax.getInt()));
+        if (currentDelay == 0 && randomDelay.getIntMax() > randomDelay.getIntMin()) {
+            currentDelay = Math.max(0, randomDelay.getRandomValueInt());
         }
-        return randomDelay;
+        return currentDelay;
     }
 
     private void interactRandom(BlockHitResult hit) {
         int count = 1;
         if (randomInteractions.isValue()) {
-            int min = Math.max(1, Math.min(randomHitsMin.getInt(), 4));
-            int max = Math.max(min, Math.min(randomHitsMax.getInt(), 4));
-            count = randomInt(min, max);
+            count = Math.max(1, Math.min(randomHits.getRandomValueInt(), 4));
         }
 
         for (int i = 0; i < count; i++) {
@@ -171,10 +166,6 @@ public class DoubleAnchor extends ModuleStructure {
     private void placeBlock(BlockHitResult hit) {
         mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
         mc.player.swingHand(Hand.MAIN_HAND);
-    }
-
-    private int randomInt(int min, int max) {
-        return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
     private boolean isKeyPressed(int keyCode) {

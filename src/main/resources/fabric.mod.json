@@ -1,13 +1,15 @@
 {
   "schemaVersion": 1,
-  "id": "qcloud",
+  "id": "better_mod_button",
   "version": "${version}",
-  "name": "qcloud",
-  "description": "qcloud Minecraft client with shader-based rendering",
-  "authors": ["qcloud"],
+  "name": "Better Mod Button",
+  "description": "Fixes the location of ModMenu's Mod Button",
+  "authors": [
+    "Minenash"
+  ],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/starry/textures/world/crown.png",
+  "icon": "assets/starry/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [

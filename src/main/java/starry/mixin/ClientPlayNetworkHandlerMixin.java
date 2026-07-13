@@ -9,6 +9,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
 import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
 import net.minecraft.sound.SoundEvents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,6 +23,7 @@ import starry.events.impl.ChatEvent;
 import starry.events.impl.GameLeftEvent;
 import starry.events.impl.WorldChangeEvent;
 import starry.modules.impl.render.*;
+import starry.modules.impl.extras.NoRotation;
 
 @Mixin(ClientPlayNetworkHandler.class)
 public abstract class ClientPlayNetworkHandlerMixin implements IMinecraft {
@@ -66,6 +68,16 @@ public abstract class ClientPlayNetworkHandlerMixin implements IMinecraft {
     @Inject(method = "onPlayerRespawn", at = @At("RETURN"))
     private void onPlayerRespawn(PlayerRespawnS2CPacket packet, CallbackInfo ci) {
         EventManager.callEvent(WorldChangeEvent.get());
+    }
+
+    @Inject(method = "onPlayerPositionLook", at = @At("HEAD"))
+    private void beforePlayerPositionLook(PlayerPositionLookS2CPacket packet, CallbackInfo ci) {
+        NoRotation.beforeServerRotation();
+    }
+
+    @Inject(method = "onPlayerPositionLook", at = @At("RETURN"))
+    private void afterPlayerPositionLook(PlayerPositionLookS2CPacket packet, CallbackInfo ci) {
+        NoRotation.afterServerRotation();
     }
 
     @Inject(method = "onEntityStatus", at = @At("HEAD"), cancellable = true)

@@ -1,7 +1,6 @@
 package starry.util.session;
 
 import net.minecraft.client.session.Session;
-import starry.util.config.impl.UserConfigManager;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -18,8 +17,6 @@ public class SessionChanger {
     public static void changeUsername(String newUsername) {
         if (sessionSetter == null || newUsername == null || newUsername.isEmpty()) return;
 
-        UserConfigManager.saveCurrentUser();
-
         UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + newUsername).getBytes());
 
         Session newSession = new Session(
@@ -31,7 +28,6 @@ public class SessionChanger {
         );
 
         sessionSetter.accept(newSession);
-        UserConfigManager.loadCurrentUser();
     }
 
     public static String getCurrentUsername() {

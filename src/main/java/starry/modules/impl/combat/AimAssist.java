@@ -100,6 +100,7 @@ public class AimAssist extends ModuleStructure {
         }
 
         Vec3d targetPos = posMode.isSelected("Normal") ? target.getEntityPos() : target.getLerpedPos(event.getPartialTicks());
+        targetPos = targetPos.add(0, target.getEyeHeight(target.getPose()), 0);
         if (aimAt.isSelected("Chest")) targetPos = targetPos.add(0, -0.5, 0);
         else if (aimAt.isSelected("Legs")) targetPos = targetPos.add(0, -1.2, 0);
 

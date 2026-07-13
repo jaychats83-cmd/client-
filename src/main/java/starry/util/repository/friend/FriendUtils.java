@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.experimental.UtilityClass;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
-import starry.util.config.impl.friend.FriendConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +27,6 @@ public class FriendUtils {
 
     public void addFriendAndSave(String name) {
         addFriend(name);
-        FriendConfig.getInstance().save();
     }
 
     public void removeFriend(PlayerEntity player) {
@@ -41,7 +39,6 @@ public class FriendUtils {
 
     public void removeFriendAndSave(String name) {
         removeFriend(name);
-        FriendConfig.getInstance().save();
     }
 
     public boolean isFriend(Entity entity) {
@@ -61,7 +58,6 @@ public class FriendUtils {
 
     public void clearAndSave() {
         clear();
-        FriendConfig.getInstance().save();
     }
 
     public List<String> getFriendNames() {

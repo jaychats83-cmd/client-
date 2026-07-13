@@ -5,7 +5,6 @@ import net.minecraft.client.MinecraftClient;
 import starry.events.api.EventHandler;
 import starry.events.api.EventManager;
 import starry.events.impl.KeyEvent;
-import starry.util.config.impl.macro.MacroConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +30,6 @@ public class MacroRepository {
 
     public void init() {
         EventManager.register(this);
-        MacroConfig.getInstance().load();
     }
 
     public void addMacro(String name, String message, int key) {
@@ -40,7 +38,6 @@ public class MacroRepository {
 
     public void addMacroAndSave(String name, String message, int key) {
         addMacro(name, message, key);
-        MacroConfig.getInstance().save();
     }
 
     public boolean hasMacro(String name) {
@@ -59,7 +56,6 @@ public class MacroRepository {
 
     public void deleteMacroAndSave(String name) {
         deleteMacro(name);
-        MacroConfig.getInstance().save();
     }
 
     public void clearList() {
@@ -68,7 +64,6 @@ public class MacroRepository {
 
     public void clearListAndSave() {
         clearList();
-        MacroConfig.getInstance().save();
     }
 
     public int size() {

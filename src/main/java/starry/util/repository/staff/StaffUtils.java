@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.experimental.UtilityClass;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
-import starry.util.config.impl.staff.StaffConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +23,6 @@ public class StaffUtils {
 
     public void addStaffAndSave(String name) {
         addStaff(name);
-        StaffConfig.getInstance().save();
     }
 
     public void removeStaff(String name) {
@@ -33,7 +31,6 @@ public class StaffUtils {
 
     public void removeStaffAndSave(String name) {
         removeStaff(name);
-        StaffConfig.getInstance().save();
     }
 
     public boolean isStaff(Entity entity) {
@@ -53,7 +50,6 @@ public class StaffUtils {
 
     public void clearAndSave() {
         clear();
-        StaffConfig.getInstance().save();
     }
 
     public List<String> getStaffNames() {

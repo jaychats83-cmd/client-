@@ -7,6 +7,8 @@ import starry.modules.impl.movement.*;
 import starry.modules.impl.player.*;
 import starry.modules.impl.render.*;
 import starry.modules.impl.util.*;
+import starry.modules.impl.basefind.*;
+import starry.modules.impl.extras.*;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -56,6 +58,20 @@ public class ModuleRepository {
                 .add(new TotemOffhand())
                 .add(new TriggerBot())
                 .add(new Velocity())
+                // ESP finders
+                .add(new RotatedDeepslateESP())
+                .add(new PistonESP())
+                .add(new SpawnerESP())
+                .add(new VillagerESP())
+                .add(new StorageESP())
+                // Extras
+                .add(new AntiPacketKick())
+                .add(new Nuker())
+                .add(new FreecamMine())
+                .add(new PacketMine())
+                .add(new GuiMove())
+                .add(new SpeedMine())
+                .add(new NoRotation())
                 // Movement
                 .add(new Sprint())
                 .add(new Flight())

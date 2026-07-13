@@ -2,8 +2,8 @@ package starry.screens.clickgui.impl.client;
 
 import net.minecraft.client.gui.DrawContext;
 import starry.IMinecraft;
+import starry.screens.clickgui.ClickGui;
 import starry.util.ColorUtil;
-import starry.util.config.impl.bind.BindConfig;
 import starry.util.render.Render2D;
 import starry.util.render.font.Fonts;
 import starry.util.theme.Theme;
@@ -44,7 +44,7 @@ public class ClientSettingsRenderer implements IMinecraft {
         int textColor = ColorUtil.multAlpha(ColorUtil.getText2(), alphaMultiplier);
 
         Fonts.BOLD.draw(StringHelper.decrypt(new byte[]{9, (byte)-81, 54, (byte)-117, 121, (byte)-36, 98, 6, (byte)-52, (byte)-29, 20, (byte)-115, 107, (byte)-7, 94, (byte)-72, 46}), x + 10, sy, 5.5f, textColor);
-        String keyName = getKeyName(BindConfig.getInstance().getBindKey());
+        String keyName = getKeyName(ClickGui.getClickGuiKey());
         float keyX = x + PANEL_W - 10 - Fonts.BOLD.getWidth(keyName, 5.5f);
         Fonts.REGULAR.draw(keyName, keyX, sy, 5.5f, settingKeybind ? 0xFFFFAA00 : textColor);
 
@@ -80,6 +80,17 @@ public class ClientSettingsRenderer implements IMinecraft {
             float sx = accentStartX + i * (swatchSize + gap);
             Render2D.rect(sx, sy, swatchSize, swatchSize, accentColors.get(i), 2);
         }
+
+        sy += 28;
+        Render2D.rect(x + 8, sy - 8, PANEL_W - 16, 1, ColorUtil.multAlpha(ColorUtil.getOutline(), alphaMultiplier), 0);
+        Fonts.BOLD.draw("Self Destruct Dialog", x + 10, sy, 6, titleColor);
+
+        sy += 20;
+        drawOption("Style", ThemeManager.getSelfDestructStyle(), x, sy, textColor);
+        sy += 18;
+        drawOption("Backdrop", ThemeManager.getSelfDestructDimName(), x, sy, textColor);
+        sy += 18;
+        drawOption("Detail Text", ThemeManager.isSelfDestructDetails() ? "Shown" : "Hidden", x, sy, textColor);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button, float bgX, float bgY) {
@@ -115,13 +126,26 @@ public class ClientSettingsRenderer implements IMinecraft {
             }
         }
 
+
+        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 136 && mouseY <= y + 154) {
+            ThemeManager.cycleSelfDestructStyle();
+            return true;
+        }
+        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 154 && mouseY <= y + 172) {
+            ThemeManager.cycleSelfDestructDim();
+            return true;
+        }
+        if (mouseX >= x + 8 && mouseX <= x + PANEL_W - 8 && mouseY >= y + 172 && mouseY <= y + 194) {
+            ThemeManager.toggleSelfDestructDetails();
+            return true;
+        }
+
         return false;
     }
 
     public boolean keyPressed(int keyCode) {
         if (settingKeybind) {
-            BindConfig.getInstance().setKey(keyCode);
-            BindConfig.getInstance().save();
+            ClickGui.setClickGuiKey(keyCode);
             settingKeybind = false;
             return true;
         }
@@ -143,5 +167,11 @@ public class ClientSettingsRenderer implements IMinecraft {
             } catch (Exception e2) {}
             return "KEY_" + key;
         }
+    }
+
+    private void drawOption(String label, String value, float x, float y, int color) {
+        Fonts.REGULAR.draw(label, x + 10, y, 5.5f, color);
+        float valueX = x + PANEL_W - 10 - Fonts.BOLD.getWidth(value, 5.5f);
+        Fonts.BOLD.draw(value, valueX, y, 5.5f, ThemeManager.getTheme().accent);
     }
 }

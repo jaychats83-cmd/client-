@@ -2,6 +2,8 @@ package starry.util.config.impl;
 
 import com.google.gson.*;
 import starry.Initialization;
+import starry.client.draggables.HudElement;
+import starry.client.draggables.HudManager;
 import starry.modules.module.ModuleRepository;
 import starry.modules.module.ModuleStructure;
 import starry.modules.module.setting.Setting;
@@ -32,6 +34,7 @@ public class ConfigSerializer {
         }
 
         root.add("modules", modulesJson);
+        root.add("hud", serializeHud());
         root.addProperty("version", "2.0");
         root.addProperty("timestamp", System.currentTimeMillis());
         root.addProperty("client", "qcloud");
@@ -132,6 +135,10 @@ public class ConfigSerializer {
                         }
                     }
                 }
+            }
+
+            if (root.has("hud")) {
+                deserializeHud(root.getAsJsonObject("hud"));
             }
 
         } catch (JsonSyntaxException e) {
@@ -244,10 +251,52 @@ public class ConfigSerializer {
         }
     }
 
+    private JsonObject serializeHud() {
+        JsonObject hudJson = new JsonObject();
+        HudManager hud = getHudManager();
+        if (hud == null) return hudJson;
+
+        for (HudElement element : hud.getElements()) {
+            JsonObject elJson = new JsonObject();
+            elJson.addProperty("x", element.getX());
+            elJson.addProperty("y", element.getY());
+            elJson.addProperty("width", element.getWidth());
+            elJson.addProperty("height", element.getHeight());
+            elJson.addProperty("enabled", element.isEnabled());
+            hudJson.add(element.getName(), elJson);
+        }
+        return hudJson;
+    }
+
+    private void deserializeHud(JsonObject hudJson) {
+        HudManager hud = getHudManager();
+        if (hud == null) return;
+
+        for (HudElement element : hud.getElements()) {
+            String name = element.getName();
+            if (hudJson.has(name)) {
+                JsonObject elJson = hudJson.getAsJsonObject(name);
+                if (elJson.has("x")) element.setX(elJson.get("x").getAsInt());
+                if (elJson.has("y")) element.setY(elJson.get("y").getAsInt());
+                if (elJson.has("width")) element.setWidth(elJson.get("width").getAsInt());
+                if (elJson.has("height")) element.setHeight(elJson.get("height").getAsInt());
+                if (elJson.has("enabled")) element.setEnabled(elJson.get("enabled").getAsBoolean());
+            }
+        }
+    }
+
     private ModuleRepository getModuleRepository() {
         Initialization instance = Initialization.getInstance();
         if (instance != null && instance.getManager() != null) {
             return instance.getManager().getModuleRepository();
+        }
+        return null;
+    }
+
+    private HudManager getHudManager() {
+        Initialization instance = Initialization.getInstance();
+        if (instance != null && instance.getManager() != null) {
+            return instance.getManager().getHudManager();
         }
         return null;
     }

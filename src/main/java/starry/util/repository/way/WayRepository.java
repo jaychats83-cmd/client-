@@ -8,7 +8,6 @@ import starry.IMinecraft;
 import starry.events.api.EventHandler;
 import starry.events.api.EventManager;
 import starry.events.impl.DrawEvent;
-import starry.util.config.impl.way.WayConfig;
 import starry.util.math.Projection;
 import starry.util.render.Render2D;
 import starry.util.render.font.Font;
@@ -37,7 +36,6 @@ public class WayRepository implements IMinecraft {
 
     public void init() {
         EventManager.register(this);
-        WayConfig.getInstance().load();
     }
 
     public boolean isEmpty() {
@@ -50,7 +48,6 @@ public class WayRepository implements IMinecraft {
 
     public void addWayAndSave(String name, BlockPos pos, String server) {
         addWay(name, pos, server);
-        WayConfig.getInstance().save();
     }
 
     public boolean hasWay(String name) {
@@ -69,7 +66,6 @@ public class WayRepository implements IMinecraft {
 
     public void deleteWayAndSave(String name) {
         deleteWay(name);
-        WayConfig.getInstance().save();
     }
 
     public void clearList() {
@@ -78,7 +74,6 @@ public class WayRepository implements IMinecraft {
 
     public void clearListAndSave() {
         clearList();
-        WayConfig.getInstance().save();
     }
 
     public int size() {
